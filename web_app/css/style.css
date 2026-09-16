@@ -170,6 +170,18 @@ body {
   border-color: rgba(34, 197, 94, 0.35);
 }
 
+.badge-status.reconnecting {
+  background-color: var(--warning-tint);
+  color: #ffc069;
+  border-color: rgba(245, 158, 11, 0.35);
+  animation: pulseBadge 1.2s ease-in-out infinite;
+}
+
+@keyframes pulseBadge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
 .badge-icon {
   width: 16px !important;
   height: 16px !important;
@@ -365,43 +377,10 @@ body {
   animation: shakeAlert 0.8s infinite alternate;
 }
 
-.hero-stats-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  border-top: 1px solid var(--outline-variant);
-  padding-top: 16px;
-}
-
-.hero-stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-}
-
-.stat-icon {
-  color: var(--text-muted);
-  width: 18px !important;
-  height: 18px !important;
-  margin-bottom: 2px;
-}
-
-.hero-stat-item h4 {
-  font-size: 10.5px;
+.hero-helper-text {
+  font-size: 13px;
   color: var(--text-sub);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.hero-stat-item span:last-child {
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--text-main);
-  margin-top: 1px;
-  display: block;
-  font-family: 'Roboto Mono', 'Roboto', monospace;
+  margin-top: 4px;
 }
 
 /* ============== 2-col Primary Grid ============== */
@@ -521,6 +500,41 @@ body {
   font-weight: 600;
   margin-top: 4px;
   font-family: 'Roboto Mono', 'Roboto', monospace;
+}
+
+/* ============== Live Position Mini Map ============== */
+.map-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.mini-map {
+  height: 190px;
+  width: 100%;
+}
+
+/* OSM tiles have no free no-key dark variant, so invert + hue-rotate the
+   standard tileset into a dark basemap that matches the cockpit theme. */
+.mini-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.94) contrast(0.92) saturate(0.7);
+}
+
+.mini-map .leaflet-control-attribution {
+  background: rgba(10, 13, 19, 0.7) !important;
+  color: var(--text-muted) !important;
+}
+
+.mini-map .leaflet-control-attribution a {
+  color: var(--text-sub) !important;
+}
+
+.rider-marker {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.35), 0 2px 8px rgba(0,0,0,0.4);
 }
 
 /* ============== Section headings shared ============== */
@@ -1103,4 +1117,54 @@ body {
 @keyframes shakeAlert {
   0% { transform: scale(1); }
   100% { transform: scale(1.04); }
+}
+
+/* ============== 3D Intro Splash ============== */
+.bike-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  background: radial-gradient(ellipse 900px 600px at 50% 30%, rgba(59,130,246,0.16), transparent 65%), var(--bg-page);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.7s ease;
+}
+
+.bike-splash.fade-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bike-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.bike-splash-brand {
+  position: absolute;
+  bottom: 14%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+.bike-splash-title {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  color: var(--text-main);
+  text-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+}
+
+.bike-splash-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-sub);
+  margin-top: 8px;
+  text-transform: uppercase;
 }

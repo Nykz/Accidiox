@@ -8,6 +8,13 @@ header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 
+// PHP 8.1+ makes mysqli throw exceptions by default. get_logs.php and
+// log_accident.php both check $conn->connect_error / ->query() return
+// values the old-fashioned way, so restore that behavior explicitly —
+// otherwise any DB error is an uncaught exception (blank HTTP 500, no
+// JSON body) instead of the clean error response those scripts expect.
+mysqli_report(MYSQLI_REPORT_OFF);
+
 $host     = "127.0.0.1";
 $port     = 3307; // Configured for your XAMPP MySQL port
 $username = "root";

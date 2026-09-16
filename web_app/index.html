@@ -14,9 +14,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet" />
 
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
+
+  <!-- 3D Intro Splash -->
+  <div id="bikeSplash" class="bike-splash">
+    <canvas id="bikeCanvas" class="bike-canvas"></canvas>
+    <div class="bike-splash-brand">
+      <div class="bike-splash-title">ACCIDIOX</div>
+      <div class="bike-splash-subtitle">Initializing telematics system</div>
+    </div>
+  </div>
 
   <div class="app-wrapper">
 
@@ -30,27 +40,27 @@
         </div>
       </div>
       <div id="headerBadge" class="badge-status">
-        <svg id="headerBadgeIcon" class="icon badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l8 6-8 6V3l8 6-8 6"/><line x1="3" y1="3" x2="21" y2="21"/></svg>
+        <svg id="headerBadgeIcon" class="icon badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10-5 5V2l5 5L7 17"/><line id="headerBadgeSlash" x1="2.5" y1="2.5" x2="21.5" y2="21.5"/></svg>
         <span id="headerBadgeText">Disconnected</span>
       </div>
     </header>
 
-    <main class="container">
+    <main class="container" id="homeView">
 
       <!-- Hardware Connection Action Box -->
       <section class="card connect-row">
         <div class="connect-meta">
           <div class="icon-avatar icon-avatar-blue">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l8 6-8 6V3l8 6-8 6"/></svg>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></svg>
           </div>
           <div>
-            <h3>Hardware Module Link</h3>
-            <p id="deviceStatusText">Bluetooth Low Energy 4.2</p>
+            <h3>Bike Connection</h3>
+            <p id="deviceStatusText">Not connected</p>
           </div>
         </div>
         <div class="connect-actions">
           <button id="btnConnectMain" class="btn btn-primary">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l8 6-8 6V3l8 6-8 6"/><path d="M20 6a11 11 0 0 1 0 12" opacity="0.55"/></svg>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></svg>
             <span>Connect</span>
           </button>
           <button id="btnDisconnect" class="btn btn-danger-outline" style="display: none;">
@@ -65,26 +75,9 @@
         <div id="safetyIcon" class="icon-avatar icon-avatar-success hero-icon">
           <svg id="safetyIconGlyph" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.6-3 8.2-7 9-4-0.8-7-4.4-7-9V6l7-3z"/><path d="M9 12.2l2 2 4.2-4.2"/></svg>
         </div>
-        <div class="hero-subtitle">Vehicle Safety Status</div>
+        <div class="hero-subtitle">Your Ride Status</div>
         <div id="safetyStatusText" class="hero-title">SAFE RIDING</div>
-
-        <div class="hero-stats-row">
-          <div class="hero-stat-item">
-            <svg class="icon stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.6 5.9"/><polyline points="3 16.5 4 21 8.3 19.8"/></svg>
-            <h4>Lean (Roll)</h4>
-            <span id="rollValue">0.0&deg;</span>
-          </div>
-          <div class="hero-stat-item">
-            <svg class="icon stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v15"/><polyline points="4.5 14 8 18 11.5 14"/><path d="M16 21V6"/><polyline points="12.5 10 16 6 19.5 10"/></svg>
-            <h4>Pitch</h4>
-            <span id="pitchValue">0.0&deg;</span>
-          </div>
-          <div class="hero-stat-item">
-            <svg class="icon stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2L22 20H2L12 3.2z"/><line x1="12" y1="9.5" x2="12" y2="14"/><circle cx="12" cy="16.8" r="0.9" fill="currentColor" stroke="none"/></svg>
-            <h4>Threshold</h4>
-            <span>55.0&deg;</span>
-          </div>
-        </div>
+        <p id="heroHelperText" class="hero-helper-text">Everything looks normal. No action needed.</p>
       </section>
 
       <!-- 2-Column Primary Metrics Grid -->
@@ -120,6 +113,33 @@
           <div id="locationCoords" class="location-coords">Satellite positioning standby</div>
         </div>
       </section>
+
+      <!-- Live Position Mini Map -->
+      <section class="card map-card">
+        <div id="liveMap" class="mini-map"></div>
+      </section>
+
+      <!-- Nearest Help — the two things a rider actually needs at a glance -->
+      <section class="card">
+        <div class="diag-header">
+          <h3><svg class="icon section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12.5h4l1.8 5.5 3.6-11 1.8 5.5h7.8"/></svg>Nearest Help</h3>
+        </div>
+        <div class="diag-list">
+          <div class="diag-item">
+            <span class="diag-name"><svg class="icon diag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3.2"/><line x1="12" y1="7.2" x2="12" y2="16.8"/><line x1="7.2" y1="12" x2="16.8" y2="12"/></svg>Hospital</span>
+            <span id="hospitalDiag" class="diag-value highlight">Locating...</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-name"><svg class="icon diag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l7.5 2.8V11c0 4.7-3.3 8.5-7.5 10.2C7.8 19.5 4.5 15.7 4.5 11V5.3L12 2.5z"/><path d="M12 8.2l1.05 2.1 2.35.35-1.7 1.65.4 2.3-2.1-1.1-2.1 1.1.4-2.3-1.7-1.65 2.35-.35L12 8.2z" fill="currentColor" stroke="none"/></svg>Police Station</span>
+            <span id="policeDiag" class="diag-value highlight">Locating...</span>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Settings View: technical details + configuration, kept off the main screen -->
+    <main class="container" id="settingsView" style="display: none;">
 
       <!-- Handlebar 3-Button Controller Widget -->
       <section class="card">
@@ -167,12 +187,16 @@
             <span id="serverDiagStatus" class="diag-value offline">Connecting...</span>
           </div>
           <div class="diag-item">
-            <span class="diag-name"><svg class="icon diag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3.2"/><line x1="12" y1="7.2" x2="12" y2="16.8"/><line x1="7.2" y1="12" x2="16.8" y2="12"/></svg>Nearest Hospital</span>
-            <span id="hospitalDiag" class="diag-value highlight">Locating...</span>
+            <span class="diag-name"><svg class="icon diag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.6 5.9"/><polyline points="3 16.5 4 21 8.3 19.8"/></svg>Lean Angle (Roll)</span>
+            <span id="rollValue" class="diag-value">0.0&deg;</span>
           </div>
           <div class="diag-item">
-            <span class="diag-name"><svg class="icon diag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5l7.5 2.8V11c0 4.7-3.3 8.5-7.5 10.2C7.8 19.5 4.5 15.7 4.5 11V5.3L12 2.5z"/><path d="M12 8.2l1.05 2.1 2.35.35-1.7 1.65.4 2.3-2.1-1.1-2.1 1.1.4-2.3-1.7-1.65 2.35-.35L12 8.2z" fill="currentColor" stroke="none"/></svg>Nearest Police Station</span>
-            <span id="policeDiag" class="diag-value highlight">Locating...</span>
+            <span class="diag-name"><svg class="icon diag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v15"/><polyline points="4.5 14 8 18 11.5 14"/><path d="M16 21V6"/><polyline points="12.5 10 16 6 19.5 10"/></svg>Pitch Angle</span>
+            <span id="pitchValue" class="diag-value">0.0&deg;</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-name"><svg class="icon diag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2L22 20H2L12 3.2z"/><line x1="12" y1="9.5" x2="12" y2="14"/><circle cx="12" cy="16.8" r="0.9" fill="currentColor" stroke="none"/></svg>Crash Trigger Angle</span>
+            <span class="diag-value">55.0&deg;</span>
           </div>
         </div>
       </section>
@@ -230,7 +254,7 @@
 
     <!-- Bottom Navigation Bar -->
     <nav class="bottom-bar">
-      <div class="nav-link active">
+      <div class="nav-link active" id="navOverview" onclick="showView('home')">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="17" r="3.2"/><circle cx="18" cy="17" r="3.2"/><path d="M6 17l3.5-8h4L18 17M10 9H8.5"/></svg>
         <span>Overview</span>
       </div>
@@ -238,7 +262,7 @@
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3.3 6.1v13.6L9 17.6l6 2.1 5.7-2.1V4l-5.7 2.1L9 4z"/><line x1="9" y1="4" x2="9" y2="17.6"/><line x1="15" y1="6.1" x2="15" y2="19.7"/></svg>
         <span>Incident Map</span>
       </a>
-      <div class="nav-link" onclick="window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'})">
+      <div class="nav-link" id="navSettings" onclick="showView('settings')">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 12a7.4 7.4 0 0 0-0.1-1.3l1.9-1.5-1.9-3.3-2.3 0.9a7.3 7.3 0 0 0-2-1.2L14.6 3H9.4l-0.4 2.6a7.3 7.3 0 0 0-2 1.2l-2.3-0.9-1.9 3.3 1.9 1.5A7.4 7.4 0 0 0 4.6 12c0 0.4 0 0.9 0.1 1.3l-1.9 1.5 1.9 3.3 2.3-0.9c0.6 0.5 1.3 0.9 2 1.2l0.4 2.6h5.2l0.4-2.6c0.7-0.3 1.4-0.7 2-1.2l2.3 0.9 1.9-3.3-1.9-1.5c0.1-0.4 0.1-0.9 0.1-1.3z"/></svg>
         <span>Settings</span>
       </div>
@@ -246,6 +270,9 @@
 
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script src="js/bike3d.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/bluetooth.js"></script>
   <script src="js/app.js"></script>
   <script>

@@ -2,12 +2,13 @@
 // Never intercepts BLE, geolocation, or the api/*.php, Nominatim, Overpass
 // and WhatsApp calls; those always hit the network live.
 
-const CACHE_NAME = "accidiox-shell-v1";
+const CACHE_NAME = "accidiox-shell-v3";
 const SHELL_FILES = [
   "index.html",
   "css/style.css",
   "js/app.js",
   "js/bluetooth.js",
+  "js/bike3d.js",
   "manifest.json",
   "assets/icons/icon-192.png",
   "assets/icons/icon-512.png"
@@ -41,18 +42,18 @@ self.addEventListener("fetch", (event) => {
 
   if (!isShellRequest) return;
 
+  // Network-first: this app changes often, so a visitor with the page open
+  // should get the latest version whenever they're online. The cache only
+  // kicks in if the network request actually fails (offline / dead spot).
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const network = fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

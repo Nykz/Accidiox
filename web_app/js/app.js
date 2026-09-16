@@ -29,7 +29,8 @@ let appState = {
 // BLE Client Instance
 const bleManager = new BleBlackboxManager(
   (telemetry) => handleTelemetry(telemetry),
-  (isConnected, info) => handleConnectionState(isConnected, info)
+  (isConnected, info) => handleConnectionState(isConnected, info),
+  (isReconnecting) => handleReconnecting(isReconnecting)
 );
 
 // DOM Elements
@@ -37,9 +38,11 @@ const elBtnConnectMain   = document.getElementById("btnConnectMain");
 const elBtnDisconnect    = document.getElementById("btnDisconnect");
 const elHeaderBadge      = document.getElementById("headerBadge");
 const elHeaderBadgeText  = document.getElementById("headerBadgeText");
+const elHeaderBadgeSlash = document.getElementById("headerBadgeSlash");
 const elDeviceStatusText = document.getElementById("deviceStatusText");
 
 const elSafetyStatusText = document.getElementById("safetyStatusText");
+const elHeroHelperText   = document.getElementById("heroHelperText");
 const elSpeedValue       = document.getElementById("speedValue");
 const elRideTime         = document.getElementById("rideTime");
 const elRollValue        = document.getElementById("rollValue");
@@ -92,7 +95,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initGeolocation();
   testServerConnection();
+
+  // Silently reconnect to the last-paired device on every load — covers
+  // navigating to the Incident Map and back, reopening the app, etc.
+  bleManager.tryAutoReconnect();
 });
+
+// Bottom-nav view switching (Overview <-> Settings), no page reload so the
+// BLE connection never drops just from checking settings.
+function showView(name) {
+  const home = document.getElementById("homeView");
+  const settings = document.getElementById("settingsView");
+  const navOverview = document.getElementById("navOverview");
+  const navSettings = document.getElementById("navSettings");
+  if (!home || !settings) return;
+
+  const showSettings = name === "settings";
+  home.style.display = showSettings ? "none" : "flex";
+  settings.style.display = showSettings ? "flex" : "none";
+  navOverview.classList.toggle("active", !showSettings);
+  navSettings.classList.toggle("active", showSettings);
+  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+
+  // Leaflet renders tiles wrong if it was sized while hidden — fix it up
+  // now that the container is visible again.
+  if (!showSettings && liveMap) {
+    setTimeout(() => liveMap.invalidateSize(), 50);
+  }
+}
+window.showView = showView;
 
 // Screen WakeLock
 async function requestWakeLock() {
@@ -190,6 +221,32 @@ function renderContacts() {
 }
 
 // 1. Geolocation & Reverse Geocoding
+let liveMap = null;
+let riderMarker = null;
+
+function initLiveMap(lat, lon) {
+  const mapEl = document.getElementById("liveMap");
+  if (!mapEl || typeof L === "undefined" || liveMap) return;
+
+  liveMap = L.map("liveMap", { zoomControl: false, attributionControl: true }).setView([lat, lon], 15);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(liveMap);
+
+  const icon = L.divIcon({ className: "rider-marker", iconSize: [18, 18] });
+  riderMarker = L.marker([lat, lon], { icon }).addTo(liveMap);
+}
+
+function updateLiveMap(lat, lon) {
+  if (!liveMap) {
+    initLiveMap(lat, lon);
+    return;
+  }
+  riderMarker.setLatLng([lat, lon]);
+  liveMap.panTo([lat, lon]);
+}
+
 function initGeolocation() {
   if ("geolocation" in navigator) {
     navigator.geolocation.watchPosition(
@@ -206,6 +263,7 @@ function initGeolocation() {
 
         reverseGeocodeAddress(appState.currentLat, appState.currentLon);
         fetchNearestEmergencyFacilities(appState.currentLat, appState.currentLon);
+        updateLiveMap(appState.currentLat, appState.currentLon);
       },
       (err) => {
         console.warn("[GPS] Fallback:", err.message);
@@ -217,6 +275,7 @@ function initGeolocation() {
         elGpsDiagStatus.textContent = "Active (Varanasi)";
         elGpsDiagStatus.className = "diag-value online";
         fetchNearestEmergencyFacilities(25.2677, 82.9913);
+        updateLiveMap(25.2677, 82.9913);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -243,34 +302,75 @@ async function reverseGeocodeAddress(lat, lon) {
   elLocationName.textContent = appState.currentLocationName;
 }
 
+// Haversine distance in km — Overpass's "around" filter does NOT return
+// results sorted by distance (it was returning whichever node OSM happened
+// to store first within the radius), so we fetch several candidates and
+// pick the actual closest one ourselves.
+function distanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function findNearestFacility(lat, lon, amenity) {
+  const query = `[out:json];node(around:8000,${lat},${lon})["amenity"="${amenity}"];out 15;`;
+  const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+  const data = await res.json();
+  if (!data.elements || data.elements.length === 0) return null;
+
+  let closest = null;
+  let closestDist = Infinity;
+  for (const el of data.elements) {
+    const d = distanceKm(lat, lon, el.lat, el.lon);
+    if (d < closestDist) {
+      closestDist = d;
+      closest = el;
+    }
+  }
+  return { name: closest.tags.name || null, distanceKm: closestDist };
+}
+
 async function fetchNearestEmergencyFacilities(lat, lon) {
   try {
-    const hospQuery = `[out:json];node(around:6000,${lat},${lon})["amenity"="hospital"];out 1;`;
-    const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(hospQuery)}`);
-    const data = await res.json();
-    if (data.elements && data.elements.length > 0) {
-      appState.nearestHospital = data.elements[0].tags.name || "District Trauma Centre";
+    const hospital = await findNearestFacility(lat, lon, "hospital");
+    if (hospital) {
+      appState.nearestHospital = hospital.name || "Nearby Hospital";
+      appState.nearestHospitalDistance = hospital.distanceKm;
     } else {
-      appState.nearestHospital = "Sir Sunderlal Hospital, BHU";
+      appState.nearestHospital = "No hospital found nearby";
+      appState.nearestHospitalDistance = null;
     }
   } catch (err) {
-    appState.nearestHospital = "City Emergency Hospital";
+    appState.nearestHospital = "Unable to locate hospital";
+    appState.nearestHospitalDistance = null;
   }
-  if (elHospitalDiag) elHospitalDiag.textContent = appState.nearestHospital;
+  if (elHospitalDiag) {
+    elHospitalDiag.textContent = appState.nearestHospitalDistance != null
+      ? `${appState.nearestHospital} (${appState.nearestHospitalDistance.toFixed(1)} km)`
+      : appState.nearestHospital;
+  }
 
   try {
-    const policeQuery = `[out:json];node(around:6000,${lat},${lon})["amenity"="police"];out 1;`;
-    const resP = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(policeQuery)}`);
-    const dataP = await resP.json();
-    if (dataP.elements && dataP.elements.length > 0) {
-      appState.nearestPolice = dataP.elements[0].tags.name || "Local City Police Station";
+    const police = await findNearestFacility(lat, lon, "police");
+    if (police) {
+      appState.nearestPolice = police.name || "Nearby Police Station";
+      appState.nearestPoliceDistance = police.distanceKm;
     } else {
-      appState.nearestPolice = "Lanka Police Station, Varanasi";
+      appState.nearestPolice = "No police station found nearby";
+      appState.nearestPoliceDistance = null;
     }
   } catch (err) {
-    appState.nearestPolice = "Central Police Station";
+    appState.nearestPolice = "Unable to locate police station";
+    appState.nearestPoliceDistance = null;
   }
-  if (elPoliceDiag) elPoliceDiag.textContent = appState.nearestPolice;
+  if (elPoliceDiag) {
+    elPoliceDiag.textContent = appState.nearestPoliceDistance != null
+      ? `${appState.nearestPolice} (${appState.nearestPoliceDistance.toFixed(1)} km)`
+      : appState.nearestPolice;
+  }
 }
 
 // 2. BLE Telemetry Handler
@@ -285,9 +385,10 @@ function handleTelemetry(data) {
     if (!appState.isEmergencyActive) {
       elSafetyStatusText.textContent = "CRASH DETECTED";
       elSafetyStatusText.className = "hero-title crash";
+      if (elHeroHelperText) elHeroHelperText.textContent = "Confirm you're safe, or help is on the way.";
       triggerEmergencyRoutine(data);
     }
-  } 
+  }
   else if (cmd === "CANCEL_SAFE") {
     flashBtnUi(elUiBtn2);
     if (appState.isEmergencyActive) {
@@ -296,18 +397,19 @@ function handleTelemetry(data) {
   }
   else if (cmd === "BTN_UP") {
     flashBtnUi(elUiBtn1);
-  } 
+  }
   else if (cmd === "BTN_CENTER") {
     flashBtnUi(elUiBtn2);
-  } 
+  }
   else if (cmd === "BTN_DOWN") {
     flashBtnUi(elUiBtn3);
-  } 
+  }
   else {
     // Only reset title if emergency is not active
     if (!appState.isEmergencyActive) {
       elSafetyStatusText.textContent = "SAFE RIDING";
       elSafetyStatusText.className = "hero-title";
+      if (elHeroHelperText) elHeroHelperText.textContent = "Everything looks normal. No action needed.";
     }
   }
 }
@@ -323,27 +425,39 @@ function handleConnectionState(isConnected, info) {
   if (isConnected) {
     elHeaderBadge.className = "badge-status connected";
     elHeaderBadgeText.textContent = "Connected";
-    elDeviceStatusText.textContent = "Hardware & Remote Linked";
-    
+    elDeviceStatusText.textContent = "Connected to your bike";
+
     elBtnConnectMain.style.display = "none";
     elBtnDisconnect.style.display = "block";
 
     elBleDiagStatus.textContent = "Connected";
     elBleDiagStatus.className = "diag-value online";
+    if (elHeaderBadgeSlash) elHeaderBadgeSlash.style.display = "none";
 
     startRideTimer();
   } else {
     elHeaderBadge.className = "badge-status";
     elHeaderBadgeText.textContent = "Disconnected";
-    elDeviceStatusText.textContent = "Bluetooth Low Energy 4.2";
+    elDeviceStatusText.textContent = "Not connected";
 
     elBtnConnectMain.style.display = "block";
     elBtnDisconnect.style.display = "none";
 
     elBleDiagStatus.textContent = "Offline";
     elBleDiagStatus.className = "diag-value offline";
+    if (elHeaderBadgeSlash) elHeaderBadgeSlash.style.display = "";
 
     stopRideTimer();
+  }
+}
+
+// Shows a "Reconnecting..." state in the header badge while the BLE link
+// tries to recover on its own after an unexpected drop.
+function handleReconnecting(isReconnecting) {
+  if (isReconnecting) {
+    elHeaderBadge.className = "badge-status reconnecting";
+    elHeaderBadgeText.textContent = "Reconnecting...";
+    elDeviceStatusText.textContent = "Link lost — reconnecting automatically";
   }
 }
 

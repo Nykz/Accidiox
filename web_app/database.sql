@@ -1,10 +1,11 @@
 -- =======================================================
 -- Database Schema for Two-Wheeler Smart Black Box
--- Compatible with WAMP Server (MySQL / MariaDB)
+-- Runs inside whichever database is currently selected —
+-- on WAMP/XAMPP that's two_wheeler_blackbox (create it yourself
+-- first); on shared hosting (e.g. Hostinger) select your
+-- pre-created database in phpMyAdmin before importing this file,
+-- since hosting accounts can't CREATE DATABASE from SQL.
 -- =======================================================
-
-CREATE DATABASE IF NOT EXISTS `two_wheeler_blackbox` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `two_wheeler_blackbox`;
 
 -- Table for storing accident incidents and safety events
 CREATE TABLE IF NOT EXISTS `accident_logs` (
