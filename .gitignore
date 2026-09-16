@@ -1,0 +1,11 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
+
+# Node (only used locally for the http-server preview task)
+node_modules/
+
+# Exact duplicate of PROJECT_MASTER_DOCUMENTATION.md — the .md is the
+# canonical copy tracked in this repo (renders nicely on GitHub).
+PROJECT_MASTER_DOCUMENTATION.txt

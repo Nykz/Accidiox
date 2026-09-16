@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blackbox Accident Investigation &amp; Analytics Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg-page: #0a0d13;
+      --bg-card: rgba(24, 29, 41, 0.86);
+      --bg-card-alt: #1c222f;
+      --outline: rgba(255, 255, 255, 0.12);
+      --outline-variant: rgba(255, 255, 255, 0.07);
+      --text-main: #f3f5f9;
+      --text-sub: #9aa4b6;
+      --text-muted: #69707f;
+      --primary: #3b82f6;
+      --primary-hover: #2f6fe0;
+      --primary-tint: rgba(59, 130, 246, 0.14);
+      --success: #22c55e;
+      --success-tint: rgba(34, 197, 94, 0.14);
+      --danger: #ef4444;
+      --danger-tint: rgba(239, 68, 68, 0.15);
+      --shadow-1: 0 1px 2px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.25);
+      --shadow-2: 0 6px 20px rgba(0,0,0,.4);
+      --radius-lg: 18px;
+      --radius-md: 13px;
+      --blur-glass: 24px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', system-ui, sans-serif; }
+    .icon { width: 20px; height: 20px; display: inline-flex; flex-shrink: 0; vertical-align: middle; }
+    body {
+      background-color: var(--bg-page);
+      background-image:
+        radial-gradient(ellipse 900px 500px at 10% -10%, rgba(59,130,246,0.16), transparent 60%),
+        radial-gradient(ellipse 700px 500px at 100% 10%, rgba(239,68,68,0.10), transparent 55%);
+      background-attachment: fixed;
+      color: var(--text-main); padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+    .top-bar {
+      display: flex; flex-wrap: wrap; row-gap: 14px; justify-content: space-between; align-items: center;
+      background: var(--bg-card); backdrop-filter: blur(var(--blur-glass)); -webkit-backdrop-filter: blur(var(--blur-glass));
+      padding: 16px 22px; border-radius: var(--radius-lg);
+      border: 1px solid var(--outline-variant); box-shadow: var(--shadow-1);
+    }
+    .top-bar-title { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 240px; }
+    .top-bar h1 { overflow-wrap: break-word; }
+    @media (max-width: 560px) {
+      .top-bar h1 { font-size: 15.5px; }
+      .top-bar p { font-size: 11px; }
+    }
+    .brand-mark {
+      width: 42px; height: 42px; border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--primary), #22d3ee); color: #fff;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(59,130,246,0.45);
+    }
+    .brand-mark .icon { width: 24px; height: 24px; }
+    .top-bar h1 { font-size: 18px; font-weight: 700; color: var(--text-main); }
+    .top-bar p { font-size: 12px; color: var(--text-sub); margin-top: 2px; font-weight: 500; }
+    .back-link {
+      color: #7fb2ff; text-decoration: none; font-size: 13px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px;
+      border-radius: 999px; background-color: var(--primary-tint);
+      border: 1px solid rgba(59,130,246,0.26);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .back-link .icon { width: 18px; height: 18px; }
+
+    .grid-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: start; }
+    @media (max-width: 900px) { .grid-layout { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--bg-card); backdrop-filter: blur(var(--blur-glass)); -webkit-backdrop-filter: blur(var(--blur-glass));
+      border: 1px solid var(--outline-variant);
+      border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-1);
+    }
+    .card-title {
+      font-size: 14px; font-weight: 700; margin-bottom: 14px; text-transform: uppercase;
+      letter-spacing: 0.3px; display: flex; justify-content: space-between; align-items: center;
+      color: var(--text-main);
+    }
+    .card-title-left { display: flex; align-items: center; gap: 8px; }
+    .card-title .icon { color: var(--primary); width: 20px; height: 20px; }
+    .live-chip {
+      font-size: 11px; font-weight: 700; color: var(--success); background: var(--success-tint);
+      padding: 4px 10px; border-radius: 999px; text-transform: none; letter-spacing: 0;
+      display: inline-flex; align-items: center; gap: 4px;
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+    #map { height: 440px; border-radius: var(--radius-md); border: 1px solid var(--outline-variant); }
+    /* OSM tiles have no free no-key dark variant, so invert + hue-rotate the
+       standard tileset into a dark basemap that matches the cockpit theme. */
+    #map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.94) contrast(0.92) saturate(0.7); }
+
+    .table-container { overflow-x: auto; max-height: 440px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+    th {
+      background: var(--bg-card-alt); color: var(--text-sub); padding: 10px 12px;
+      border-bottom: 1px solid var(--outline-variant); position: sticky; top: 0;
+      font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.3px;
+    }
+    td { padding: 11px 12px; border-bottom: 1px solid var(--outline-variant); color: var(--text-main); }
+    tr:hover td { background-color: var(--bg-card-alt); }
+
+    .status-badge {
+      padding: 4px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
+      text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .status-crash { background: var(--danger-tint); color: #ff9c94; }
+    .status-canceled { background: var(--success-tint); color: var(--success); }
+
+    .btn-refresh {
+      background: linear-gradient(135deg, var(--primary), #2563eb); color: #fff; border: none; padding: 8px 16px;
+      border-radius: 999px; font-weight: 700; font-size: 12.5px; cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 18px -4px rgba(59,130,246,0.45);
+    }
+    .btn-refresh:hover { background: linear-gradient(135deg, var(--primary-hover), #1d4fc4); }
+    .btn-refresh .icon { width: 17px; height: 17px; }
+
+    .map-link { color: #7fb2ff; text-decoration: none; font-weight: 600; }
+    .empty-row td { text-align: center; padding: 26px; color: var(--text-muted); }
+    .error-row td { text-align: center; padding: 26px; color: #ff9c94; }
+
+    /* Dark Leaflet popups to match the cockpit theme */
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+      background: #161b26; color: var(--text-main); box-shadow: var(--shadow-2);
+    }
+    .leaflet-popup-content { font-size: 12.5px; line-height: 1.5; }
+    .leaflet-container a.leaflet-popup-close-button { color: var(--text-sub); }
+    .leaflet-bar a, .leaflet-bar a:hover { background-color: #161b26; color: var(--text-main); border-bottom: 1px solid var(--outline-variant); }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="top-bar">
+      <div class="top-bar-title">
+        <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5a5 5 0 0 1 5 5V13H7V7.5a5 5 0 0 1 5-5z"/><line x1="4.5" y1="13" x2="19.5" y2="13"/><rect x="6.5" y="17.5" width="11" height="3.2" rx="1"/></svg></div>
+        <div>
+          <h1>Emergency Blackbox Analytics &amp; Investigation Center</h1>
+          <p>IIT (BHU) Varanasi &middot; Smart Mobility &amp; Incident Response</p>
+        </div>
+      </div>
+      <a href="index.html" class="back-link">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="20" y1="12" x2="5" y2="12"/><polyline points="10.5 6 4.5 12 10.5 18"/></svg>
+        Back to Rider App
+      </a>
+    </div>
+
+    <div class="grid-layout">
+      <!-- Incident Map -->
+      <div class="card">
+        <div class="card-title">
+          <span class="card-title-left">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3.3 6.1v13.6L9 17.6l6 2.1 5.7-2.1V4l-5.7 2.1L9 4z"/><line x1="9" y1="4" x2="9" y2="17.6"/><line x1="15" y1="6.1" x2="15" y2="19.7"/></svg>
+            Incident Geospatial Map
+          </span>
+          <span class="live-chip"><span class="live-dot"></span>Live GPS Tracking</span>
+        </div>
+        <div id="map"></div>
+      </div>
+
+      <!-- Logs Table -->
+      <div class="card">
+        <div class="card-title">
+          <span class="card-title-left">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2.2h12v19.6l-2-1.1-2 1.1-2-1.1-2 1.1-2-1.1-2 1.1V2.2z"/><line x1="9" y1="7.2" x2="15" y2="7.2"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+            Blackbox Telemetry Logs
+          </span>
+          <button class="btn-refresh" onclick="loadIncidentLogs()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3.5 4 3.5 9.5 9 9.5"/><polyline points="20.5 20 20.5 14.5 15 14.5"/><path d="M5.1 15.5A8 8 0 0 0 19 18.3"/><path d="M18.9 8.5A8 8 0 0 0 5 5.7"/></svg>Refresh
+          </button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Status</th>
+                <th>Tilt</th>
+                <th>Speed</th>
+                <th>Location</th>
+                <th>Hospital</th>
+              </tr>
+            </thead>
+            <tbody id="logsTbody">
+              <tr class="empty-row"><td colspan="6">Loading incident records from WAMP database...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialize Leaflet Map centered around IIT Varanasi
+    const map = L.map('map').setView([25.2677, 82.9913], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let markers = [];
+
+    async function loadIncidentLogs() {
+      try {
+        const response = await fetch('api/get_logs.php');
+        const res = await response.json();
+
+        const tbody = document.getElementById('logsTbody');
+        tbody.innerHTML = '';
+
+        // Clear previous map markers
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+
+        if (res.data && res.data.length > 0) {
+          res.data.forEach(log => {
+            const isCrash = log.status === 'CONFIRMED_CRASH';
+            const badgeClass = isCrash ? 'status-crash' : 'status-canceled';
+            const badgeText = isCrash ? 'Crash Confirmed' : 'Canceled (Safe)';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${log.timestamp}</td>
+              <td><span class="status-badge ${badgeClass}">${badgeText}</span></td>
+              <td><b>${log.tilt_angle}&deg;</b></td>
+              <td>${log.speed_kmh} km/h</td>
+              <td><a class="map-link" href="https://maps.google.com/?q=${log.latitude},${log.longitude}" target="_blank">${log.latitude ? String(log.latitude).substring(0,6) : '0'}, ${log.longitude ? String(log.longitude).substring(0,6) : '0'}</a></td>
+              <td>${log.nearest_hospital}</td>
+            `;
+            tbody.appendChild(tr);
+
+            // Add pin to Map if coordinates exist
+            if (log.latitude && log.longitude) {
+              const marker = L.marker([log.latitude, log.longitude]).addTo(map);
+              marker.bindPopup(`
+                <b>Incident ID: #${log.id}</b><br/>
+                <b>Status:</b> ${log.status}<br/>
+                <b>Tilt Angle:</b> ${log.tilt_angle}&deg;<br/>
+                <b>Hospital:</b> ${log.nearest_hospital}<br/>
+                <small>${log.timestamp}</small>
+              `);
+              markers.push(marker);
+            }
+          });
+
+          // Center map on latest incident
+          if (markers.length > 0) {
+            map.panTo(markers[0].getLatLng());
+          }
+        } else {
+          tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accidents recorded in WAMP database yet.</td></tr>';
+        }
+      } catch (err) {
+        console.warn('Error fetching logs:', err);
+        document.getElementById('logsTbody').innerHTML = '<tr class="error-row"><td colspan="6">Unable to connect to WAMP Server. Ensure Apache &amp; MySQL are running in WAMP.</td></tr>';
+      }
+    }
+
+    // Load logs on page open
+    loadIncidentLogs();
+  </script>
+</body>
+</html>

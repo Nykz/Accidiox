@@ -1,0 +1,26 @@
+-- =======================================================
+-- Database Schema for Two-Wheeler Smart Black Box
+-- Compatible with WAMP Server (MySQL / MariaDB)
+-- =======================================================
+
+CREATE DATABASE IF NOT EXISTS `two_wheeler_blackbox` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `two_wheeler_blackbox`;
+
+-- Table for storing accident incidents and safety events
+CREATE TABLE IF NOT EXISTS `accident_logs` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `status` VARCHAR(50) NOT NULL COMMENT 'CONFIRMED_CRASH or CANCELED_FALSE_ALARM',
+    `tilt_angle` FLOAT NOT NULL COMMENT 'Tilt in degrees',
+    `roll_angle` FLOAT NOT NULL COMMENT 'Roll in degrees',
+    `pitch_angle` FLOAT NOT NULL COMMENT 'Pitch in degrees',
+    `latitude` DECIMAL(10, 8) DEFAULT NULL,
+    `longitude` DECIMAL(11, 8) DEFAULT NULL,
+    `speed_kmh` FLOAT DEFAULT 0.0,
+    `nearest_hospital` VARCHAR(255) DEFAULT 'Searching...',
+    `timestamp` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Insert a sample dummy log for testing
+INSERT INTO `accident_logs` (`status`, `tilt_angle`, `roll_angle`, `pitch_angle`, `latitude`, `longitude`, `speed_kmh`, `nearest_hospital`, `timestamp`)
+VALUES 
+('CONFIRMED_CRASH', 62.4, 58.1, 15.2, 25.26770000, 82.99130000, 42.5, 'Sir Sunderlal Hospital, BHU', NOW());
