@@ -41,9 +41,10 @@ const elHeaderBadgeText  = document.getElementById("headerBadgeText");
 const elHeaderBadgeSlash = document.getElementById("headerBadgeSlash");
 const elDeviceStatusText = document.getElementById("deviceStatusText");
 
-const elSafetyStatusText = document.getElementById("safetyStatusText");
 const elHeroHelperText   = document.getElementById("heroHelperText");
-const elSpeedValue       = document.getElementById("speedValue");
+const elClusterStatusBadge = document.getElementById("clusterStatusBadge");
+const elClusterStatusText  = document.getElementById("clusterStatusText");
+const elSpeedValue       = document.getElementById("clusterSpeedValue");
 const elRideTime         = document.getElementById("rideTime");
 const elRollValue        = document.getElementById("rollValue");
 const elPitchValue       = document.getElementById("pitchValue");
@@ -373,6 +374,11 @@ async function fetchNearestEmergencyFacilities(lat, lon) {
   }
 }
 
+function setSafetyStatus(isCrash) {
+  elClusterStatusText.textContent = isCrash ? "CRASH DETECTED" : "SAFE RIDING";
+  elClusterStatusBadge.className = "cluster-status-badge" + (isCrash ? " crash" : " safe");
+}
+
 // 2. BLE Telemetry Handler
 function handleTelemetry(data) {
   const cmd = data.status;
@@ -380,11 +386,14 @@ function handleTelemetry(data) {
   if (elRollValue) elRollValue.textContent = `${data.roll}°`;
   if (elPitchValue) elPitchValue.textContent = `${data.pitch}°`;
 
+  // Drive the 3D cluster's bike orientation from the bike's actual sensor
+  // readings — it only moves when the real bike does, never decoratively.
+  if (window.__setBikeTilt) window.__setBikeTilt(data.roll, data.pitch);
+
   // Check for Crash or Manual SOS Trigger
   if (cmd === "CRASH" || cmd === "MANUAL_SOS" || data.tilt >= 85.0) {
     if (!appState.isEmergencyActive) {
-      elSafetyStatusText.textContent = "CRASH DETECTED";
-      elSafetyStatusText.className = "hero-title crash";
+      setSafetyStatus(true);
       if (elHeroHelperText) elHeroHelperText.textContent = "Confirm you're safe, or help is on the way.";
       triggerEmergencyRoutine(data);
     }
@@ -407,8 +416,7 @@ function handleTelemetry(data) {
   else {
     // Only reset title if emergency is not active
     if (!appState.isEmergencyActive) {
-      elSafetyStatusText.textContent = "SAFE RIDING";
-      elSafetyStatusText.className = "hero-title";
+      setSafetyStatus(false);
       if (elHeroHelperText) elHeroHelperText.textContent = "Everything looks normal. No action needed.";
     }
   }
@@ -517,8 +525,8 @@ function cancelEmergency() {
 
   appState.isEmergencyActive = false;
   elEmergencyModal.classList.remove("show");
-  elSafetyStatusText.textContent = "SAFE RIDING";
-  elSafetyStatusText.className = "hero-title";
+  setSafetyStatus(false);
+  if (elHeroHelperText) elHeroHelperText.textContent = "Everything looks normal. No action needed.";
 
   syncToDatabase({
     status: "CANCELED_FALSE_ALARM",

@@ -19,15 +19,6 @@
 </head>
 <body>
 
-  <!-- 3D Intro Splash -->
-  <div id="bikeSplash" class="bike-splash">
-    <canvas id="bikeCanvas" class="bike-canvas"></canvas>
-    <div class="bike-splash-brand">
-      <div class="bike-splash-title">ACCIDIOX</div>
-      <div class="bike-splash-subtitle">Initializing telematics system</div>
-    </div>
-  </div>
-
   <div class="app-wrapper">
 
     <!-- Top System Header -->
@@ -70,38 +61,34 @@
         </div>
       </section>
 
-      <!-- Safety State Hero Card -->
-      <section class="card hero-status">
-        <div id="safetyIcon" class="icon-avatar icon-avatar-success hero-icon">
-          <svg id="safetyIconGlyph" class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.6-3 8.2-7 9-4-0.8-7-4.4-7-9V6l7-3z"/><path d="M9 12.2l2 2 4.2-4.2"/></svg>
+      <!-- 3D Instrument Cluster: persistent top-down bike view -->
+      <section class="card cluster-card" id="bikeClusterWrap">
+        <canvas id="bikeCanvas" class="bike-canvas"></canvas>
+
+        <div id="clusterStatusBadge" class="cluster-status-badge safe">
+          <span id="clusterStatusDot" class="cluster-status-dot"></span>
+          <span id="clusterStatusText">SAFE RIDING</span>
         </div>
-        <div class="hero-subtitle">Your Ride Status</div>
-        <div id="safetyStatusText" class="hero-title">SAFE RIDING</div>
-        <p id="heroHelperText" class="hero-helper-text">Everything looks normal. No action needed.</p>
+
+        <div class="cluster-speed-wrap">
+          <span id="clusterSpeedValue" class="cluster-speed-value">0</span>
+          <span class="cluster-speed-unit">km/h</span>
+        </div>
+
+        <div class="cluster-fallback">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="17" r="3.2"/><circle cx="18" cy="17" r="3.2"/><path d="M6 17l3.5-8h4L18 17M9.5 9H8M13 9l1.8-3h2.7"/></svg>
+        </div>
       </section>
 
-      <!-- 2-Column Primary Metrics Grid -->
-      <section class="grid-2col">
+      <p id="heroHelperText" class="hero-helper-text">Everything looks normal. No action needed.</p>
 
-        <!-- Speed Metric -->
-        <div class="card metric-card">
-          <div class="metric-icon metric-icon-blue"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 13l3.6-3.6"/><line x1="12" y1="7" x2="12" y2="5.3"/><line x1="17.5" y1="9" x2="18.7" y2="7.8"/><line x1="6.5" y1="9" x2="5.3" y2="7.8"/></svg></div>
-          <div class="metric-label">Current Speed</div>
-          <div class="metric-val-wrap">
-            <span id="speedValue" class="metric-big-num">0</span>
-            <span class="metric-unit">km/h</span>
-          </div>
+      <!-- Ride Duration -->
+      <section class="card metric-card metric-card-wide">
+        <div class="metric-icon metric-icon-blue"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4l3 2"/><line x1="9.5" y1="2" x2="14.5" y2="2"/></svg></div>
+        <div class="metric-label">Ride Duration</div>
+        <div class="metric-val-wrap">
+          <span id="rideTime" class="metric-big-num metric-big-num-sm">00:00:00</span>
         </div>
-
-        <!-- Trip Duration Metric -->
-        <div class="card metric-card">
-          <div class="metric-icon metric-icon-blue"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4l3 2"/><line x1="9.5" y1="2" x2="14.5" y2="2"/></svg></div>
-          <div class="metric-label">Ride Duration</div>
-          <div class="metric-val-wrap">
-            <span id="rideTime" class="metric-big-num metric-big-num-sm">00:00:00</span>
-          </div>
-        </div>
-
       </section>
 
       <!-- Location Card -->

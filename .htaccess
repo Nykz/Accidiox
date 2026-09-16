@@ -1,0 +1,14 @@
+# Accidiox is deployed with the repo root as document root, but the
+# actual site lives in web_app/. Transparently serve everything from
+# there without changing the URL the visitor sees.
+#
+# This file must stay committed to the repo — Hostinger's git auto-deploy
+# re-clones the repo on every push, so an untracked .htaccess added only
+# via SFTP gets silently wiped on the next deploy (this happened once
+# already; don't remove this file from version control).
+RewriteEngine On
+
+RewriteRule ^\.git - [F,L]
+
+RewriteCond %{REQUEST_URI} !^/web_app/
+RewriteRule ^(.*)$ /web_app/$1 [L]

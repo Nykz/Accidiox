@@ -1,54 +1,52 @@
 /*
-  Accidiox Telematics — Industrial Cockpit UI
-  Dark automotive surfaces, glass-panel cards, zero emoji iconography (SVG only).
+  Accidiox Telematics — Light Instrument Cluster UI
+  Clean white surfaces, soft shadows, zero emoji iconography (SVG only).
 */
 
 :root {
   /* Surfaces */
-  --bg-page: #0a0d13;
-  --bg-page-glow-1: rgba(47, 125, 255, 0.16);
-  --bg-page-glow-2: rgba(239, 68, 68, 0.10);
-  --bg-card: rgba(24, 29, 41, 0.86);
-  --bg-card-solid: #161b26;
-  --bg-card-alt: #1c222f;
-  --bg-card-alt-hover: #232a39;
-  --outline: rgba(255, 255, 255, 0.12);
-  --outline-variant: rgba(255, 255, 255, 0.07);
-  --outline-strong: rgba(255, 255, 255, 0.18);
+  --bg-page: #f1f2f5;
+  --bg-card: #ffffff;
+  --bg-card-solid: #ffffff;
+  --bg-card-alt: #f5f6f8;
+  --bg-card-alt-hover: #ebedf0;
+  --outline: #e3e5e9;
+  --outline-variant: #edeef1;
+  --outline-strong: #d3d6dc;
 
   /* Text */
-  --text-main: #f3f5f9;
-  --text-sub: #9aa4b6;
-  --text-muted: #69707f;
+  --text-main: #14161a;
+  --text-sub: #62666f;
+  --text-muted: #9297a1;
 
-  /* Brand / Industrial blue-cyan */
-  --primary: #3b82f6;
-  --primary-hover: #2f6fe0;
-  --primary-tint: rgba(59, 130, 246, 0.14);
-  --primary-tint-strong: rgba(59, 130, 246, 0.26);
-  --primary-glow: rgba(59, 130, 246, 0.45);
+  /* Brand / blue-cyan */
+  --primary: #2563eb;
+  --primary-hover: #1d4fc4;
+  --primary-tint: rgba(37, 99, 235, 0.08);
+  --primary-tint-strong: rgba(37, 99, 235, 0.16);
+  --primary-glow: rgba(37, 99, 235, 0.28);
 
   /* Semantic */
-  --success: #22c55e;
-  --success-tint: rgba(34, 197, 94, 0.14);
-  --success-glow: rgba(34, 197, 94, 0.45);
-  --danger: #ef4444;
-  --danger-tint: rgba(239, 68, 68, 0.15);
-  --danger-glow: rgba(239, 68, 68, 0.5);
-  --warning: #f59e0b;
-  --warning-tint: rgba(245, 158, 11, 0.15);
+  --success: #16a34a;
+  --success-tint: rgba(22, 163, 74, 0.10);
+  --success-glow: rgba(22, 163, 74, 0.3);
+  --danger: #dc2626;
+  --danger-tint: rgba(220, 38, 38, 0.08);
+  --danger-glow: rgba(220, 38, 38, 0.32);
+  --warning: #d97706;
+  --warning-tint: rgba(217, 119, 6, 0.10);
 
   /* Elevation */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
-  --shadow-2: 0 6px 20px rgba(0, 0, 0, 0.4);
-  --shadow-3: 0 24px 70px rgba(0, 0, 0, 0.6);
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.08);
+  --shadow-2: 0 8px 22px rgba(16, 24, 40, 0.1);
+  --shadow-3: 0 24px 60px rgba(16, 24, 40, 0.18);
 
   --radius-lg: 18px;
   --radius-md: 13px;
   --radius-sm: 9px;
   --radius-full: 999px;
 
-  --blur-glass: 24px;
+  --blur-glass: 16px;
 }
 
 * {
@@ -69,10 +67,6 @@
 
 body {
   background-color: var(--bg-page);
-  background-image:
-    radial-gradient(ellipse 900px 500px at 15% -10%, var(--bg-page-glow-1), transparent 60%),
-    radial-gradient(ellipse 700px 500px at 110% 20%, var(--bg-page-glow-2), transparent 55%);
-  background-attachment: fixed;
   color: var(--text-main);
   min-height: 100vh;
   display: flex;
@@ -85,17 +79,17 @@ body {
   width: 100%;
   max-width: 480px;
   min-height: 100vh;
-  background-color: transparent;
+  background-color: var(--bg-page);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 0 80px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 40px rgba(16, 24, 40, 0.08);
   position: relative;
   padding-bottom: 84px;
 }
 
 /* ============== Header / Top App Bar ============== */
 .top-nav {
-  background-color: rgba(10, 13, 19, 0.82);
+  background-color: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(var(--blur-glass));
   -webkit-backdrop-filter: blur(var(--blur-glass));
   border-bottom: 1px solid var(--outline-variant);
@@ -124,7 +118,7 @@ body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 16px var(--primary-glow);
+  box-shadow: 0 4px 14px var(--primary-glow);
 }
 
 .brand-mark .icon {
@@ -156,8 +150,8 @@ body {
   font-weight: 700;
   letter-spacing: 0.1px;
   background-color: var(--danger-tint);
-  color: #ff9c94;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--danger);
+  border: 1px solid rgba(220, 38, 38, 0.2);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -166,14 +160,14 @@ body {
 
 .badge-status.connected {
   background-color: var(--success-tint);
-  color: #7fe3a3;
-  border-color: rgba(34, 197, 94, 0.35);
+  color: var(--success);
+  border-color: rgba(22, 163, 74, 0.22);
 }
 
 .badge-status.reconnecting {
   background-color: var(--warning-tint);
-  color: #ffc069;
-  border-color: rgba(245, 158, 11, 0.35);
+  color: var(--warning);
+  border-color: rgba(217, 119, 6, 0.25);
   animation: pulseBadge 1.2s ease-in-out infinite;
 }
 
@@ -195,11 +189,9 @@ body {
   gap: 14px;
 }
 
-/* ============== Cards (glass panels) ============== */
+/* ============== Cards ============== */
 .card {
   background-color: var(--bg-card);
-  backdrop-filter: blur(var(--blur-glass));
-  -webkit-backdrop-filter: blur(var(--blur-glass));
   border: 1px solid var(--outline-variant);
   border-radius: var(--radius-lg);
   padding: 18px;
@@ -224,13 +216,12 @@ body {
 
 .icon-avatar-blue {
   background-color: var(--primary-tint);
-  color: #7fb2ff;
+  color: var(--primary);
 }
 
 .icon-avatar-success {
   background-color: var(--success-tint);
   color: var(--success);
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.25), 0 0 24px -4px var(--success-glow);
 }
 
 .icon-avatar-danger {
@@ -316,84 +307,143 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary), #2563eb);
+  background: linear-gradient(135deg, var(--primary), #1d4fc4);
   color: #ffffff;
-  box-shadow: 0 4px 18px -4px var(--primary-glow);
+  box-shadow: 0 4px 14px -3px var(--primary-glow);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--primary-hover), #1d4fc4);
+  background: linear-gradient(135deg, var(--primary-hover), #1740a3);
 }
 
 .btn-danger-outline {
   background-color: transparent;
-  color: #ff9c94;
-  border: 1.5px solid rgba(239, 68, 68, 0.45);
+  color: var(--danger);
+  border: 1.5px solid rgba(220, 38, 38, 0.35);
 }
 
 .btn-danger-outline:hover {
   background-color: var(--danger-tint);
 }
 
-/* ============== Status Hero Banner ============== */
-.hero-status {
-  text-align: center;
-  padding: 26px 18px 20px;
+/* ============== 3D Instrument Cluster ============== */
+.cluster-card {
   position: relative;
+  padding: 0;
   overflow: hidden;
+  height: 250px;
+  background: linear-gradient(180deg, #ffffff 0%, #eef1f5 100%);
 }
 
-.hero-icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 12px;
-  transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+.bike-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
-.hero-icon .icon {
-  width: 30px;
-  height: 30px;
-}
-
-.hero-subtitle {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 1.4px;
-}
-
-.hero-title {
-  font-size: 25px;
-  font-weight: 900;
+.cluster-status-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-1);
   color: var(--success);
-  margin: 6px 0 18px 0;
-  letter-spacing: -0.3px;
-  transition: color 0.2s ease;
+  z-index: 2;
 }
 
-.hero-title.crash {
-  color: #ff5c52;
+.cluster-status-badge.crash {
+  color: var(--danger);
   animation: shakeAlert 0.8s infinite alternate;
+}
+
+.cluster-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.cluster-speed-wrap {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
+  z-index: 2;
+}
+
+.cluster-speed-value {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text-main);
+  font-family: 'Roboto Mono', 'Roboto', monospace;
+  line-height: 1;
+}
+
+.cluster-speed-unit {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.cluster-fallback {
+  display: none;
+}
+
+.cluster-unavailable .bike-canvas {
+  display: none;
+}
+
+.cluster-unavailable .cluster-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+}
+
+.cluster-unavailable .cluster-fallback .icon {
+  width: 64px;
+  height: 64px;
 }
 
 .hero-helper-text {
   font-size: 13px;
   color: var(--text-sub);
-  margin-top: 4px;
+  text-align: center;
+  margin-top: -6px;
 }
 
-/* ============== 2-col Primary Grid ============== */
-.grid-2col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
+/* ============== Metric Cards ============== */
 .metric-card {
   padding: 16px;
   display: flex;
   flex-direction: column;
+}
+
+.metric-card-wide {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.metric-card-wide .metric-icon {
+  margin-bottom: 0;
 }
 
 .metric-icon {
@@ -404,6 +454,7 @@ body {
   align-items: center;
   justify-content: center;
   margin-bottom: 10px;
+  flex-shrink: 0;
 }
 
 .metric-icon .icon {
@@ -413,7 +464,7 @@ body {
 
 .metric-icon-blue {
   background-color: var(--primary-tint);
-  color: #7fb2ff;
+  color: var(--primary);
 }
 
 .metric-label {
@@ -426,6 +477,10 @@ body {
 
 .metric-val-wrap {
   margin-top: 8px;
+}
+
+.metric-card-wide .metric-val-wrap {
+  margin-top: 0;
 }
 
 .metric-big-num {
@@ -461,12 +516,13 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.08);
-  color: #7fb2ff;
+  background-color: #ffffff;
+  color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: var(--shadow-1);
 }
 
 .location-icon .icon {
@@ -481,7 +537,7 @@ body {
 .location-tag {
   font-size: 11px;
   font-weight: 700;
-  color: #7fb2ff;
+  color: var(--primary);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -489,14 +545,14 @@ body {
 .location-name {
   font-size: 15.5px;
   font-weight: 800;
-  color: #e8f0ff;
+  color: #0b2f8a;
   margin-top: 3px;
   line-height: 1.3;
 }
 
 .location-coords {
   font-size: 12px;
-  color: #9dc0ff;
+  color: var(--primary-hover);
   font-weight: 600;
   margin-top: 4px;
   font-family: 'Roboto Mono', 'Roboto', monospace;
@@ -513,28 +569,13 @@ body {
   width: 100%;
 }
 
-/* OSM tiles have no free no-key dark variant, so invert + hue-rotate the
-   standard tileset into a dark basemap that matches the cockpit theme. */
-.mini-map .leaflet-tile-pane {
-  filter: invert(1) hue-rotate(180deg) brightness(0.94) contrast(0.92) saturate(0.7);
-}
-
-.mini-map .leaflet-control-attribution {
-  background: rgba(10, 13, 19, 0.7) !important;
-  color: var(--text-muted) !important;
-}
-
-.mini-map .leaflet-control-attribution a {
-  color: var(--text-sub) !important;
-}
-
 .rider-marker {
   width: 18px;
   height: 18px;
   border-radius: 50%;
   background: var(--primary);
   border: 3px solid #ffffff;
-  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.35), 0 2px 8px rgba(0,0,0,0.4);
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.22), 0 2px 8px rgba(16, 24, 40, 0.25);
 }
 
 /* ============== Section headings shared ============== */
@@ -577,13 +618,13 @@ body {
 
 .chip-blue-soft {
   background-color: var(--primary-tint);
-  color: #7fb2ff;
+  color: var(--primary);
   border: 1px solid var(--primary-tint-strong);
 }
 
 .link-arrow {
   font-size: 12px;
-  color: #7fb2ff;
+  color: var(--primary);
   text-decoration: none;
   font-weight: 700;
   display: inline-flex;
@@ -627,7 +668,7 @@ body {
 }
 
 .remote-btn-success {
-  border-color: rgba(34, 197, 94, 0.3);
+  border-color: rgba(22, 163, 74, 0.28);
   background-color: var(--success-tint);
 }
 
@@ -637,13 +678,13 @@ body {
 }
 
 .remote-btn-danger {
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: rgba(220, 38, 38, 0.28);
   background-color: var(--danger-tint);
 }
 
 .remote-btn-danger .remote-btn-icon,
 .remote-btn-danger .remote-btn-title {
-  color: #ff9c94;
+  color: var(--danger);
 }
 
 .remote-btn:active,
@@ -655,7 +696,7 @@ body {
 
 .remote-btn.active-press .remote-btn-icon,
 .remote-btn.active-press .remote-btn-title {
-  color: #7fb2ff;
+  color: var(--primary);
 }
 
 .remote-btn-title {
@@ -727,7 +768,7 @@ body {
 }
 
 .diag-value.highlight {
-  color: #7fb2ff;
+  color: var(--primary);
   background-color: var(--primary-tint);
   max-width: 170px;
   text-align: right;
@@ -766,7 +807,7 @@ body {
   height: 34px;
   border-radius: 50%;
   background-color: var(--primary-tint);
-  color: #7fb2ff;
+  color: var(--primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -837,7 +878,7 @@ body {
 
 .btn-remove-contact:hover {
   background-color: var(--danger-tint);
-  color: #ff9c94;
+  color: var(--danger);
 }
 
 .btn-remove-contact .icon {
@@ -891,7 +932,7 @@ body {
   font-size: 13.5px;
   font-weight: 700;
   color: var(--text-main);
-  background-color: var(--bg-card-solid);
+  background-color: var(--bg-card-alt);
   outline: none;
   font-family: 'Roboto', sans-serif;
 }
@@ -907,13 +948,13 @@ body {
 
 .input-text:focus {
   border-color: var(--primary);
-  background-color: #1a2130;
+  background-color: #ffffff;
   box-shadow: 0 0 0 3px var(--primary-tint);
 }
 
 .btn-add-contact {
   background-color: var(--primary-tint);
-  color: #7fb2ff;
+  color: var(--primary);
   border: 1.5px dashed var(--primary-tint-strong);
   width: 100%;
   padding: 11px;
@@ -945,9 +986,9 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(3, 4, 7, 0.86);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(20, 22, 26, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 9999;
   justify-content: center;
   align-items: center;
@@ -959,14 +1000,14 @@ body {
 }
 
 .modal-box {
-  background-color: #12151d;
-  border: 1px solid rgba(239, 68, 68, 0.25);
+  background-color: #ffffff;
+  border: 1px solid var(--outline-variant);
   border-radius: var(--radius-lg);
   padding: 30px 22px 26px;
   width: 100%;
   max-width: 380px;
   text-align: center;
-  box-shadow: var(--shadow-3), 0 0 90px -20px var(--danger-glow);
+  box-shadow: var(--shadow-3);
 }
 
 .modal-icon {
@@ -974,12 +1015,11 @@ body {
   height: 60px;
   border-radius: 50%;
   background-color: var(--danger-tint);
-  color: #ff6b62;
+  color: var(--danger);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 14px;
-  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 0 30px -6px var(--danger-glow);
 }
 
 .modal-icon .icon {
@@ -989,7 +1029,7 @@ body {
 
 .modal-badge {
   background-color: var(--danger-tint);
-  color: #ff9c94;
+  color: var(--danger);
   font-size: 11px;
   font-weight: 800;
   padding: 4px 12px;
@@ -1009,7 +1049,7 @@ body {
 .modal-countdown {
   font-size: 62px;
   font-weight: 900;
-  color: #ff5c52;
+  color: var(--danger);
   line-height: 1;
   margin: 12px 0 14px 0;
   font-family: 'Roboto Mono', 'Roboto', monospace;
@@ -1023,14 +1063,14 @@ body {
 }
 
 .btn-cancel-big {
-  background: linear-gradient(135deg, var(--success), #16a34a);
+  background: linear-gradient(135deg, var(--success), #128a3e);
   color: #ffffff;
   border: none;
   width: 100%;
   padding: 14px 18px;
   border-radius: var(--radius-md);
   cursor: pointer;
-  box-shadow: 0 6px 22px -6px var(--success-glow);
+  box-shadow: 0 6px 18px -6px var(--success-glow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1065,7 +1105,7 @@ body {
 .btn-cancel-sub {
   font-size: 11.5px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -1078,7 +1118,7 @@ body {
   transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
-  background-color: rgba(10, 13, 19, 0.86);
+  background-color: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(var(--blur-glass));
   -webkit-backdrop-filter: blur(var(--blur-glass));
   border-top: 1px solid var(--outline-variant);
@@ -1110,61 +1150,11 @@ body {
 }
 
 .nav-link.active {
-  color: #7fb2ff;
+  color: var(--primary);
   background-color: var(--primary-tint);
 }
 
 @keyframes shakeAlert {
   0% { transform: scale(1); }
   100% { transform: scale(1.04); }
-}
-
-/* ============== 3D Intro Splash ============== */
-.bike-splash {
-  position: fixed;
-  inset: 0;
-  z-index: 20000;
-  background: radial-gradient(ellipse 900px 600px at 50% 30%, rgba(59,130,246,0.16), transparent 65%), var(--bg-page);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 1;
-  transition: opacity 0.7s ease;
-}
-
-.bike-splash.fade-out {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.bike-canvas {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.bike-splash-brand {
-  position: absolute;
-  bottom: 14%;
-  left: 0;
-  right: 0;
-  text-align: center;
-  pointer-events: none;
-}
-
-.bike-splash-title {
-  font-size: 22px;
-  font-weight: 900;
-  letter-spacing: 6px;
-  color: var(--text-main);
-  text-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
-}
-
-.bike-splash-subtitle {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: var(--text-sub);
-  margin-top: 8px;
-  text-transform: uppercase;
 }

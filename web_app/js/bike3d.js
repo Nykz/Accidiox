@@ -1,36 +1,68 @@
-// Accidiox 3D Intro — a real WebGL scene with a procedurally-built
-// two-wheeler (no external 3D asset available, so the bike is constructed
-// from primitive geometry), and a camera move from a low 3/4 angle up to
-// a bird's-eye top-down view, then a slow idle rotation.
+// Accidiox 3D Instrument Cluster — a persistent WebGL panel (not a splash
+// that disappears), styled after a Tesla-style top-down instrument
+// cluster. No 3D asset was available to import, so the bike is built from
+// primitive geometry in code. Camera sweeps once from a low angle behind
+// the bike up to a fixed top-down view and STAYS there — there is no
+// decorative idle spin. Once parked at the top-down view, the bike's own
+// orientation is driven by real telemetry (roll/pitch from the ESP32), so
+// if the bike is stationary it visibly stays still, and if it leans, the
+// model leans with it.
 //
-// Fails silently into the normal dashboard if WebGL/Three.js is unavailable
-// (older phones, data-saver mode, etc.) — the splash is a nice-to-have,
-// never a blocker to using the safety features underneath it.
+// Fails silently (hides the canvas, the rest of the card still works) if
+// WebGL/Three.js is unavailable — this is a nice-to-have, never a blocker
+// to the safety features underneath it.
 
 (function () {
-  function dismissSplash() {
-    const splash = document.getElementById("bikeSplash");
-    if (!splash) return;
-    splash.classList.add("fade-out");
-    setTimeout(() => { splash.style.display = "none"; }, 700);
+  let bikeGroup = null;
+  let introDone = false;
+
+  function setTilt(rollDeg, pitchDeg) {
+    if (!bikeGroup || !introDone) return;
+    const clampedRoll = Math.max(-45, Math.min(45, rollDeg || 0));
+    const clampedPitch = Math.max(-45, Math.min(45, pitchDeg || 0));
+    bikeGroup.rotation.z = -clampedRoll * (Math.PI / 180);
+    bikeGroup.rotation.x = clampedPitch * (Math.PI / 180);
+    if (window.__renderBikeCluster) window.__renderBikeCluster();
   }
-  window.__dismissBikeSplash = dismissSplash;
+  window.__setBikeTilt = setTilt;
+
+  function makeRoadTexture(THREE) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#7b7f88";
+    ctx.fillRect(0, 0, 128, 512);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 9;
+    ctx.setLineDash([42, 34]);
+    ctx.beginPath();
+    ctx.moveTo(64, 0);
+    ctx.lineTo(64, 512);
+    ctx.stroke();
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(1, 5);
+    return tex;
+  }
 
   function buildBike(THREE) {
     const group = new THREE.Group();
 
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.65, roughness: 0.25 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x161a22, metalness: 0.4, roughness: 0.5 });
-    const tireMat = new THREE.MeshStandardMaterial({ color: 0x08090c, roughness: 0.95 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.5, roughness: 0.3 });
+    const lightBodyMat = new THREE.MeshStandardMaterial({ color: 0xeef1f5, metalness: 0.3, roughness: 0.35 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x2a2e37, metalness: 0.5, roughness: 0.4 });
+    const tireMat = new THREE.MeshStandardMaterial({ color: 0x161719, roughness: 0.95 });
     const accentMat = new THREE.MeshStandardMaterial({
-      color: 0x22d3ee, emissive: 0x0c4a5c, emissiveIntensity: 0.9, metalness: 0.3, roughness: 0.3
+      color: 0x22d3ee, emissive: 0x0c4a5c, emissiveIntensity: 0.7, metalness: 0.3, roughness: 0.3
     });
 
     function makeWheel(z) {
       const wheel = new THREE.Group();
       const tire = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.13, 16, 32), tireMat);
       tire.rotation.y = Math.PI / 2;
-      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.14, 24), darkMat);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.14, 24), lightBodyMat);
       rim.rotation.z = Math.PI / 2;
       wheel.add(tire, rim);
       wheel.position.set(0, 0.42, z);
@@ -55,7 +87,8 @@
     seat.castShadow = true;
     group.add(seat);
 
-    const forkL = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.6, 10), darkMat);
+    const forkGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.6, 10);
+    const forkL = new THREE.Mesh(forkGeo, lightBodyMat);
     forkL.position.set(0.12, 0.65, 0.95);
     forkL.rotation.x = -0.22;
     const forkR = forkL.clone();
@@ -75,7 +108,7 @@
     headlight.position.set(0, 0.9, 1.0);
     group.add(headlight);
 
-    const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.65, 12), darkMat);
+    const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.65, 12), lightBodyMat);
     exhaust.rotation.z = Math.PI / 2;
     exhaust.rotation.y = 0.18;
     exhaust.position.set(0.22, 0.48, -0.9);
@@ -92,8 +125,9 @@
 
   function init() {
     const canvas = document.getElementById("bikeCanvas");
+    const wrap = document.getElementById("bikeClusterWrap");
     if (!canvas || typeof THREE === "undefined") {
-      dismissSplash();
+      if (wrap) wrap.classList.add("cluster-unavailable");
       return;
     }
 
@@ -101,49 +135,54 @@
     try {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     } catch (e) {
-      dismissSplash();
+      if (wrap) wrap.classList.add("cluster-unavailable");
       return;
     }
 
-    const width = canvas.clientWidth || window.innerWidth;
-    const height = canvas.clientHeight || window.innerHeight;
+    const width = canvas.clientWidth || 320;
+    const height = canvas.clientHeight || 220;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0a0d13, 0.05);
 
-    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = true;
 
-    const key = new THREE.DirectionalLight(0x9fc4ff, 2.4);
-    key.position.set(4, 6, 3);
+    const key = new THREE.DirectionalLight(0xffffff, 1.8);
+    key.position.set(3, 6, 3);
     key.castShadow = true;
     scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0x22d3ee, 1.6);
-    rim.position.set(-4, 3, -3);
-    scene.add(rim);
+    const fill = new THREE.DirectionalLight(0xbcd4ff, 0.9);
+    fill.position.set(-4, 3, -2);
+    scene.add(fill);
 
-    scene.add(new THREE.AmbientLight(0x22335a, 0.7));
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
 
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(6, 64),
-      new THREE.MeshStandardMaterial({ color: 0x11151f, roughness: 0.9, metalness: 0.1 })
+    const road = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.3, 16),
+      new THREE.MeshStandardMaterial({ map: makeRoadTexture(THREE), roughness: 0.95, metalness: 0 })
     );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
+    road.rotation.x = -Math.PI / 2;
+    road.position.y = 0;
+    road.receiveShadow = true;
+    scene.add(road);
 
-    const bike = buildBike(THREE);
-    scene.add(bike);
+    bikeGroup = buildBike(THREE);
+    scene.add(bikeGroup);
 
-    const camStart = new THREE.Vector3(2.7, 1.25, 3.1);
-    const camEnd = new THREE.Vector3(0.01, 5.6, 0.01);
-    const lookTarget = new THREE.Vector3(0, 0.55, 0);
-    const introDuration = 2400;
+    const camStart = new THREE.Vector3(0, 0.55, 2.6);
+    const camEnd = new THREE.Vector3(0.001, 7.6, -0.001);
+    const lookTarget = new THREE.Vector3(0, 0.5, 0);
+    // A camera looking straight down has its view direction parallel to
+    // the default "up" vector (0,1,0), which makes lookAt()'s orientation
+    // undefined/unstable — rotate "up" toward (0,0,-1) as the camera rises
+    // so it's always perpendicular to the view direction, never parallel.
+    const upStart = new THREE.Vector3(0, 1, 0);
+    const upEnd = new THREE.Vector3(0, 0, -1);
+    const introDuration = 2200;
     let startTime = null;
-    let idle = false;
 
     function frame(ts) {
       if (!startTime) startTime = ts;
@@ -152,40 +191,36 @@
       const e = easeInOutCubic(t);
 
       camera.position.lerpVectors(camStart, camEnd, e);
+      camera.up.lerpVectors(upStart, upEnd, e).normalize();
       camera.lookAt(lookTarget);
-      bike.rotation.y = e * Math.PI * 0.55;
 
       renderer.render(scene, camera);
 
       if (t < 1) {
         requestAnimationFrame(frame);
-      } else if (!idle) {
-        idle = true;
-        setTimeout(dismissSplash, 500);
-        requestAnimationFrame(idleLoop);
+      } else {
+        introDone = true;
+        if (wrap) wrap.classList.add("cluster-ready");
+        renderer.render(scene, camera);
       }
     }
-
-    function idleLoop() {
-      bike.rotation.y += 0.0028;
-      renderer.render(scene, camera);
-      requestAnimationFrame(idleLoop);
-    }
-
     requestAnimationFrame(frame);
 
+    // Live loop: only re-renders when telemetry actually changes the
+    // bike's tilt (see setTilt above) — no continuous animation while
+    // parked, matching "still bike = still model."
+    window.__renderBikeCluster = () => {
+      if (introDone) renderer.render(scene, camera);
+    };
+
     window.addEventListener("resize", () => {
-      const w = canvas.clientWidth || window.innerWidth;
-      const h = canvas.clientHeight || window.innerHeight;
+      const w = canvas.clientWidth || width;
+      const h = canvas.clientHeight || height;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      if (introDone) renderer.render(scene, camera);
     });
-
-    // Never let the splash hang around if something above goes wrong.
-    setTimeout(() => {
-      if (!idle) dismissSplash();
-    }, 5000);
   }
 
   if (document.readyState === "loading") {
