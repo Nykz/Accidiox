@@ -4,11 +4,11 @@
 ---
 
 ## 🏗 Project Architecture & Files
-* **`index.html`**: Rider Mobile Telemetry HUD (Dark mode, Web Bluetooth connect, live tilt angle gauges, smartphone GPS, 20-second safety countdown, cancel button, SOS triggers).
+* **`index.html`**: Rider Mobile Telemetry HUD (Web Bluetooth connect, 3D top-down instrument cluster, smartphone GPS, 20-second safety countdown, cancel button, SOS triggers).
 * **`admin.html`**: Incident Investigation & Analytics Portal (Interactive Leaflet map pinning accident locations, historical telemetry logs).
 * **`js/bluetooth.js`**: Web Bluetooth Low Energy (BLE) interface communicating directly with ESP32 (`Bike-Blackbox-ESP32`).
 * **`js/app.js`**: Main app controller, audio siren synthesizer, text-to-speech, GPS tracker, and WAMP database synchronization.
-* **`api/db_config.php`**: WAMP MySQL database connection.
+* **`api/db_config.php`**: MySQL database connection — gitignored (not in this repo). Copy `api/db_config.example.php` to `api/db_config.php` and fill in real values; on Hostinger, edit it directly on the server.
 * **`api/log_accident.php`**: REST API to record accident incidents or false alarm cancellations.
 * **`api/get_logs.php`**: REST API fetching recent accident records for the investigation dashboard.
 * **`database.sql`**: Complete SQL schema for MySQL/MariaDB in WAMP.
@@ -18,6 +18,7 @@
 ## 🚀 Quick Setup Instructions (Step-by-Step)
 
 ### Step 1: Set Up Database in WAMP Server
+0. Copy `api/db_config.example.php` to `api/db_config.php` and fill in your local MySQL credentials (this file is gitignored, so it won't be overwritten by future pulls).
 1. Start **WAMP Server** (Ensure the tray icon is **Green**).
 2. Open your web browser and go to: `http://localhost/phpmyadmin/`
 3. Click on the **SQL** tab at the top.

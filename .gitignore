@@ -9,3 +9,10 @@ node_modules/
 # Exact duplicate of PROJECT_MASTER_DOCUMENTATION.md — the .md is the
 # canonical copy tracked in this repo (renders nicely on GitHub).
 PROJECT_MASTER_DOCUMENTATION.txt
+
+# Real production DB credentials live ONLY on the server (set directly via
+# SSH), never in git — this repo is public. Gitignoring this specific path
+# also makes Hostinger's git auto-deploy PRESERVE the server's live copy
+# instead of overwriting it with whatever placeholder sits in git on every
+# push (verified: an earlier push without this wiped the live credentials).
+web_app/api/db_config.php
