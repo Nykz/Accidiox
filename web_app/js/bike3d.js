@@ -34,7 +34,7 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
   const BIKE_MODELS = [
     { key: "yamaha_blue", label: "Yamaha R1", path: "assets/models/yamaha_r1.glb", wheelNodes: ["Object_8", "Object_19"], rotationY: 0 },
     { key: "yamaha_black", label: "Yamaha R1 (Black)", path: "assets/models/yamaha_r1_black.glb", wheelNodes: ["Object_23", "Object_24"], rotationY: Math.PI / 2 },
-    { key: "vespa", label: "Vespa Scooter", path: "assets/models/vespa.glb", wheelNodes: [], rotationY: 0 }
+    { key: "vespa", label: "Vespa Scooter", path: "assets/models/vespa.glb", wheelNodes: [], rotationY: Math.PI / 2 }
   ];
   const BIKE_STORAGE_KEY = "accidiox_selected_bike";
 
