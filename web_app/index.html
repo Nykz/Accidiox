@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="css/style.css?v=18" />
+  <link rel="stylesheet" href="css/style.css?v=19" />
 </head>
 <body>
 
@@ -270,6 +270,26 @@
       </div>
     </div>
 
+    <!-- Navigation Choice Modal -->
+    <div id="navChoiceModal" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-icon nav-choice-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></div>
+        <h2 class="modal-heading">Start Your Journey?</h2>
+        <p id="navChoiceSubtitle" class="modal-text">Directions to destination</p>
+        <button id="btnOpenGoogleMaps" class="btn btn-primary nav-choice-btn">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3.3 6.1v13.6L9 17.6l6 2.1 5.7-2.1V4l-5.7 2.1L9 4z"/><line x1="9" y1="4" x2="9" y2="17.6"/><line x1="15" y1="6.1" x2="15" y2="19.7"/></svg>
+          <span>Open in Google Maps</span>
+        </button>
+        <p class="nav-choice-hint">Full turn-by-turn voice navigation</p>
+        <button id="btnStayInApp" class="btn btn-secondary nav-choice-btn">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21.5s7-7.2 7-12.5a7 7 0 0 0-14 0c0 5.3 7 12.5 7 12.5z"/><circle cx="12" cy="9" r="2.4"/></svg>
+          <span>Show Route Here</span>
+        </button>
+        <p class="nav-choice-hint">Simple route line on this map, stays in the app</p>
+        <button id="btnNavChoiceCancel" class="nav-choice-cancel-btn" type="button">Cancel</button>
+      </div>
+    </div>
+
     <!-- Bottom Navigation Bar -->
     <nav class="bottom-bar">
       <div class="nav-link active" id="navOverview" onclick="showView('home')">
@@ -296,10 +316,10 @@
     }
   }
   </script>
-  <script type="module" src="js/bike3d.js?v=18"></script>
+  <script type="module" src="js/bike3d.js?v=19"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="js/bluetooth.js?v=18"></script>
-  <script src="js/app.js?v=18"></script>
+  <script src="js/bluetooth.js?v=19"></script>
+  <script src="js/app.js?v=19"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

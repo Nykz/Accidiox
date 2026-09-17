@@ -123,8 +123,17 @@ document.addEventListener("DOMContentLoaded", () => {
   if (elBtnCancelRoute) elBtnCancelRoute.addEventListener("click", () => cancelNavigation());
 
   document.querySelectorAll(".diag-navigate-btn").forEach((btn) => {
-    btn.addEventListener("click", () => startNavigation(btn.dataset.target));
+    btn.addEventListener("click", () => openNavChoiceModal(btn.dataset.target));
   });
+
+  const elBtnOpenGoogleMaps = document.getElementById("btnOpenGoogleMaps");
+  if (elBtnOpenGoogleMaps) elBtnOpenGoogleMaps.addEventListener("click", () => confirmNavChoice("google"));
+
+  const elBtnStayInApp = document.getElementById("btnStayInApp");
+  if (elBtnStayInApp) elBtnStayInApp.addEventListener("click", () => confirmNavChoice("in-app"));
+
+  const elBtnNavChoiceCancel = document.getElementById("btnNavChoiceCancel");
+  if (elBtnNavChoiceCancel) elBtnNavChoiceCancel.addEventListener("click", () => closeNavChoiceModal());
 
   initGeolocation();
   testServerConnection();
@@ -325,6 +334,52 @@ const NAV_TARGETS = {
   police: { nameKey: "nearestPolice", coordsKey: "nearestPoliceCoords" },
   petrol: { nameKey: "nearestPetrol", coordsKey: "nearestPetrolCoords" }
 };
+
+// A small in-app map widget can never match real turn-by-turn navigation
+// (live position tracking, rotating heading, voice turns, rerouting) —
+// that's a genuinely huge undertaking on its own. Instead of faking a
+// worse version of it, this asks the rider to choose between the real
+// thing (handing off to the phone's own Google Maps app) or a simple
+// static route line that stays inside Accidiox.
+let pendingNavTarget = null;
+
+function openNavChoiceModal(targetKey) {
+  const target = NAV_TARGETS[targetKey];
+  if (!target) return;
+  pendingNavTarget = targetKey;
+
+  const elSubtitle = document.getElementById("navChoiceSubtitle");
+  if (elSubtitle) elSubtitle.textContent = `Directions to ${appState[target.nameKey]}`;
+
+  const elModal = document.getElementById("navChoiceModal");
+  if (elModal) elModal.classList.add("show");
+}
+
+function closeNavChoiceModal() {
+  pendingNavTarget = null;
+  const elModal = document.getElementById("navChoiceModal");
+  if (elModal) elModal.classList.remove("show");
+}
+
+function confirmNavChoice(choice) {
+  const targetKey = pendingNavTarget;
+  closeNavChoiceModal();
+  if (!targetKey) return;
+
+  const target = NAV_TARGETS[targetKey];
+  const dest = appState[target.coordsKey];
+  if (!dest) return;
+
+  if (choice === "google") {
+    const originPart = (appState.currentLat != null && appState.currentLon != null)
+      ? `&origin=${appState.currentLat},${appState.currentLon}`
+      : "";
+    const url = `https://www.google.com/maps/dir/?api=1${originPart}&destination=${dest.lat},${dest.lon}&travelmode=driving`;
+    window.open(url, "_blank");
+  } else {
+    startNavigation(targetKey);
+  }
+}
 
 async function startNavigation(targetKey) {
   const target = NAV_TARGETS[targetKey];

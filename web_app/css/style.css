@@ -335,6 +335,45 @@ body {
   background-color: var(--danger-tint);
 }
 
+.btn-secondary {
+  background-color: var(--bg-card-alt);
+  color: var(--text-main);
+  border: 1.5px solid var(--outline-variant);
+}
+
+.btn-secondary:hover {
+  background-color: var(--outline-variant);
+}
+
+/* ============== Navigation Choice Modal ============== */
+.nav-choice-icon {
+  background-color: var(--primary-tint);
+  color: var(--primary);
+}
+
+.nav-choice-btn {
+  width: 100%;
+  margin-top: 14px;
+  padding: 13px 18px;
+}
+
+.nav-choice-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+.nav-choice-cancel-btn {
+  margin-top: 16px;
+  background: none;
+  border: none;
+  color: var(--text-sub);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px;
+}
+
 /* ============== 3D Instrument Cluster ============== */
 .cluster-card {
   position: relative;
