@@ -17,8 +17,9 @@ PROJECT_MASTER_DOCUMENTATION.txt
 # push (verified: an earlier push without this wiped the live credentials).
 web_app/api/db_config.php
 
-# Same reasoning as db_config.php above, for the Twilio WhatsApp API secret.
-web_app/api/twilio_config.php
+# Same reasoning as db_config.php above, for the Meta WhatsApp Cloud API
+# access token.
+web_app/api/meta_whatsapp_config.php
 
 # Raw Sketchfab download (model + zip) — the actual copy used by the app
 # lives at web_app/assets/models/yamaha_r1.glb, which IS tracked.

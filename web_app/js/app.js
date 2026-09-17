@@ -676,16 +676,26 @@ ${appState.nearestPolice}
 
 _This alert was generated automatically by the Smart Blackbox Safety System._`;
 
-  dispatchWhatsAppToContacts(waText);
+  // The five slots in the approved "crash_alert" WhatsApp template, in
+  // order — must match {{1}}..{{5}} as defined in WhatsApp Manager.
+  const templateParams = [
+    appState.currentLocationName,
+    mapsUrl,
+    `${nowTime} (${nowDate})`,
+    appState.nearestHospital,
+    appState.nearestPolice
+  ];
+
+  dispatchWhatsAppToContacts(waText, templateParams);
 }
 
-// Tries to send the SOS via the Twilio WhatsApp API first — that delivers
-// with zero taps on the receiving end, unlike a wa.me link (which WhatsApp
-// always makes a human confirm). Any contact Twilio couldn't reach (not
-// configured yet, or that contact hasn't joined the sandbox) falls back to
-// opening a wa.me link for just that contact, so nobody silently misses
-// the alert.
-async function dispatchWhatsAppToContacts(message) {
+// Tries to send the SOS via the Meta WhatsApp Cloud API first — that
+// delivers with zero taps on the receiving end, unlike a wa.me link (which
+// WhatsApp always makes a human confirm). Any contact it couldn't reach
+// (not configured yet, template not approved, or that contact isn't on the
+// verified test list) falls back to opening a wa.me link for just that
+// contact, so nobody silently misses the alert.
+async function dispatchWhatsAppToContacts(message, templateParams) {
   if (!appState.contacts || appState.contacts.length === 0) return;
 
   let autoResults = [];
@@ -693,7 +703,7 @@ async function dispatchWhatsAppToContacts(message) {
     const res = await fetch("api/send_whatsapp_sos.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, contacts: appState.contacts })
+      body: JSON.stringify({ templateParams, contacts: appState.contacts })
     });
     const data = await res.json();
     if (data.status === "done") autoResults = data.results;

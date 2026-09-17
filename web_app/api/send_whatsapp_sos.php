@@ -1,12 +1,17 @@
 <?php
-// Sends the SOS message to every emergency contact automatically via the
-// Twilio WhatsApp API (no "tap Send" step on the receiving end) — unlike a
+// Sends the SOS message to every emergency contact automatically via Meta's
+// WhatsApp Cloud API (no "tap Send" step on the receiving end) — unlike a
 // wa.me link, which WhatsApp deliberately requires a human to confirm.
 //
-// If twilio_config.php is missing (not set up yet) or a specific contact
-// hasn't joined the Twilio Sandbox, that contact is reported back as
-// "failed" so the frontend can fall back to opening a wa.me link for them
-// instead, rather than silently losing the alert.
+// This is a business-initiated message (the contact hasn't messaged us
+// first), so WhatsApp requires a pre-approved message template rather than
+// free-form text — see the "crash_alert" template in WhatsApp Manager.
+//
+// If meta_whatsapp_config.php is missing (not set up yet), the template
+// isn't approved yet, or a specific contact hasn't been added as a test
+// recipient, that contact is reported back as "failed" so the frontend can
+// fall back to opening a wa.me link for them instead, rather than silently
+// losing the alert.
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
@@ -16,41 +21,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-if (!file_exists(__DIR__ . '/twilio_config.php')) {
+if (!file_exists(__DIR__ . '/meta_whatsapp_config.php')) {
     http_response_code(200);
-    echo json_encode(["status" => "not_configured", "message" => "twilio_config.php not set up yet", "results" => []]);
+    echo json_encode(["status" => "not_configured", "message" => "meta_whatsapp_config.php not set up yet", "results" => []]);
     exit();
 }
-require_once 'twilio_config.php';
+require_once 'meta_whatsapp_config.php';
 
 $input = json_decode(file_get_contents('php://input'), true);
-$message  = isset($input['message']) ? $input['message'] : '';
-$contacts = isset($input['contacts']) && is_array($input['contacts']) ? $input['contacts'] : [];
+$contacts       = isset($input['contacts']) && is_array($input['contacts']) ? $input['contacts'] : [];
+$templateParams = isset($input['templateParams']) && is_array($input['templateParams']) ? $input['templateParams'] : [];
 
-if ($message === '' || count($contacts) === 0) {
+if (count($contacts) === 0 || count($templateParams) === 0) {
     http_response_code(400);
-    echo json_encode(["status" => "error", "message" => "message and contacts are required"]);
+    echo json_encode(["status" => "error", "message" => "contacts and templateParams are required"]);
     exit();
 }
 
-function send_one_whatsapp($sid, $token, $from, $toPhone, $body) {
-    $url = "https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json";
+function send_one_whatsapp($phoneNumberId, $accessToken, $templateName, $templateLang, $toPhone, $params) {
+    $url = "https://graph.facebook.com/v20.0/{$phoneNumberId}/messages";
 
-    // Twilio wants an E.164-ish number; strip anything but digits, the
-    // rest of this app already asks riders to enter contacts as
+    // Meta wants digits-only with no "+"; contacts are already stored as
     // "919876543210" style (country code + number, no plus/spaces).
     $digits = preg_replace('/[^0-9]/', '', $toPhone);
 
-    $postFields = http_build_query([
-        'From' => $from,
-        'To'   => 'whatsapp:+' . $digits,
-        'Body' => $body
-    ]);
+    $parameters = array_map(function ($text) {
+        return ["type" => "text", "text" => (string) $text];
+    }, $params);
+
+    $payload = [
+        "messaging_product" => "whatsapp",
+        "to" => $digits,
+        "type" => "template",
+        "template" => [
+            "name" => $templateName,
+            "language" => ["code" => $templateLang],
+            "components" => [
+                ["type" => "body", "parameters" => $parameters]
+            ]
+        ]
+    ];
 
     $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_USERPWD, "$sid:$token");
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "Authorization: Bearer $accessToken",
+        "Content-Type: application/json"
+    ]);
     curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $postFields);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 12);
 
@@ -65,9 +83,11 @@ function send_one_whatsapp($sid, $token, $from, $toPhone, $body) {
 
     $decoded = json_decode($response, true);
     if ($httpCode >= 200 && $httpCode < 300) {
-        return ["ok" => true, "sid" => isset($decoded['sid']) ? $decoded['sid'] : null];
+        $msgId = isset($decoded['messages'][0]['id']) ? $decoded['messages'][0]['id'] : null;
+        return ["ok" => true, "id" => $msgId];
     }
-    return ["ok" => false, "error" => isset($decoded['message']) ? $decoded['message'] : "HTTP $httpCode"];
+    $errMsg = isset($decoded['error']['message']) ? $decoded['error']['message'] : "HTTP $httpCode";
+    return ["ok" => false, "error" => $errMsg];
 }
 
 $results = [];
@@ -76,12 +96,12 @@ foreach ($contacts as $contact) {
     $name  = isset($contact['name']) ? $contact['name'] : $phone;
     if ($phone === '') continue;
 
-    $outcome = send_one_whatsapp($twilio_account_sid, $twilio_auth_token, $twilio_whatsapp_from, $phone, $message);
+    $outcome = send_one_whatsapp($meta_phone_number_id, $meta_access_token, $meta_template_name, $meta_template_lang, $phone, $templateParams);
     $results[] = [
         "name" => $name,
         "phone" => $phone,
         "sent" => $outcome["ok"],
-        "detail" => $outcome["ok"] ? $outcome["sid"] : $outcome["error"]
+        "detail" => $outcome["ok"] ? $outcome["id"] : $outcome["error"]
     ];
 }
 
