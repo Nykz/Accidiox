@@ -23,6 +23,9 @@ let appState = {
   nearestHospital: "Locating hospital...",
   nearestPolice: "Locating police precinct...",
   nearestPetrol: "Locating petrol pump...",
+  nearestHospitalCoords: null,
+  nearestPoliceCoords: null,
+  nearestPetrolCoords: null,
   isEmergencyActive: false,
   countdownTimer: null,
   remainingSeconds: 20,
@@ -112,6 +115,16 @@ document.addEventListener("DOMContentLoaded", () => {
   if (elUiBtn1) elUiBtn1.addEventListener("click", () => flashBtnUi(elUiBtn1));
   if (elUiBtn2) elUiBtn2.addEventListener("click", () => { flashBtnUi(elUiBtn2); if (appState.isEmergencyActive) cancelEmergency(); });
   if (elUiBtn3) elUiBtn3.addEventListener("click", () => { flashBtnUi(elUiBtn3); triggerEmergencyRoutine({ tilt: 60, roll: 55, pitch: 10 }); });
+
+  const elBtnRecenterMap = document.getElementById("btnRecenterMap");
+  if (elBtnRecenterMap) elBtnRecenterMap.addEventListener("click", () => recenterLiveMap());
+
+  const elBtnCancelRoute = document.getElementById("btnCancelRoute");
+  if (elBtnCancelRoute) elBtnCancelRoute.addEventListener("click", () => cancelNavigation());
+
+  document.querySelectorAll(".diag-navigate-btn").forEach((btn) => {
+    btn.addEventListener("click", () => startNavigation(btn.dataset.target));
+  });
 
   initGeolocation();
   testServerConnection();
@@ -271,6 +284,9 @@ function renderContacts() {
 // 1. Geolocation & Reverse Geocoding
 let liveMap = null;
 let riderMarker = null;
+let routeLayer = null;
+let destMarker = null;
+let routeActive = false;
 
 function initLiveMap(lat, lon) {
   const mapEl = document.getElementById("liveMap");
@@ -292,7 +308,75 @@ function updateLiveMap(lat, lon) {
     return;
   }
   riderMarker.setLatLng([lat, lon]);
-  liveMap.panTo([lat, lon]);
+  // Don't fight the rider's view while they're looking at an active route
+  // or have manually panned/zoomed away — only auto-follow by default.
+  if (!routeActive) {
+    liveMap.panTo([lat, lon]);
+  }
+}
+
+function recenterLiveMap() {
+  if (!liveMap || appState.currentLat == null || appState.currentLon == null) return;
+  liveMap.setView([appState.currentLat, appState.currentLon], 15);
+}
+
+const NAV_TARGETS = {
+  hospital: { nameKey: "nearestHospital", coordsKey: "nearestHospitalCoords" },
+  police: { nameKey: "nearestPolice", coordsKey: "nearestPoliceCoords" },
+  petrol: { nameKey: "nearestPetrol", coordsKey: "nearestPetrolCoords" }
+};
+
+async function startNavigation(targetKey) {
+  const target = NAV_TARGETS[targetKey];
+  if (!target || !liveMap) return;
+
+  const dest = appState[target.coordsKey];
+  if (!dest || appState.currentLat == null || appState.currentLon == null) {
+    speakVoice("Location not ready yet, please wait a moment and try again.");
+    return;
+  }
+
+  const elRouteText = document.getElementById("routeInfoText");
+  const elRouteBar = document.getElementById("routeInfoBar");
+  if (elRouteText) elRouteText.textContent = "Finding route...";
+  if (elRouteBar) elRouteBar.style.display = "flex";
+
+  try {
+    const url = `api/geoapify_proxy.php?type=routing&from_lat=${appState.currentLat}&from_lon=${appState.currentLon}&to_lat=${dest.lat}&to_lon=${dest.lon}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const feature = data.features && data.features[0];
+    if (!feature) throw new Error("No route found");
+
+    // GeoJSON MultiLineString: array of line segments, each an array of
+    // [lon, lat] points — flatten to one path and swap to Leaflet's [lat, lon].
+    const segments = feature.geometry.coordinates;
+    const latlngs = segments.flat().map(([lon, lat]) => [lat, lon]);
+
+    if (routeLayer) liveMap.removeLayer(routeLayer);
+    if (destMarker) liveMap.removeLayer(destMarker);
+
+    routeLayer = L.polyline(latlngs, { color: "#2563eb", weight: 5, opacity: 0.85 }).addTo(liveMap);
+    destMarker = L.marker([dest.lat, dest.lon]).addTo(liveMap);
+    liveMap.fitBounds(routeLayer.getBounds(), { padding: [24, 24] });
+    routeActive = true;
+
+    const km = (feature.properties.distance / 1000).toFixed(1);
+    const mins = Math.round(feature.properties.time / 60);
+    if (elRouteText) elRouteText.textContent = `${appState[target.nameKey]} — ${km} km, ${mins} min`;
+  } catch (err) {
+    console.warn("[Navigation] Route request failed:", err);
+    if (elRouteText) elRouteText.textContent = "Unable to get directions";
+  }
+}
+
+function cancelNavigation() {
+  if (routeLayer) { liveMap.removeLayer(routeLayer); routeLayer = null; }
+  if (destMarker) { liveMap.removeLayer(destMarker); destMarker = null; }
+  routeActive = false;
+  const elRouteBar = document.getElementById("routeInfoBar");
+  if (elRouteBar) elRouteBar.style.display = "none";
+  recenterLiveMap();
 }
 
 // Heartbeat so the admin portal can show a genuinely live position
@@ -417,22 +501,26 @@ async function findNearestFacility(lat, lon, category) {
       closest = feature;
     }
   }
-  return { name: (closest.properties && closest.properties.name) || null, distanceKm: closestDist };
+  const [closestLon, closestLat] = closest.geometry.coordinates;
+  return { name: (closest.properties && closest.properties.name) || null, distanceKm: closestDist, lat: closestLat, lon: closestLon };
 }
 
-async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, fallbackName, notFoundText, el) {
+async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, coordsKey, fallbackName, notFoundText, el) {
   try {
     const found = await findNearestFacility(lat, lon, category);
     if (found) {
       appState[stateKey] = found.name || fallbackName;
       appState[distanceKey] = found.distanceKm;
+      appState[coordsKey] = { lat: found.lat, lon: found.lon };
     } else {
       appState[stateKey] = notFoundText;
       appState[distanceKey] = null;
+      appState[coordsKey] = null;
     }
   } catch (err) {
     appState[stateKey] = `Unable to locate ${fallbackName.toLowerCase()}`;
     appState[distanceKey] = null;
+    appState[coordsKey] = null;
   }
   if (el) {
     el.textContent = appState[distanceKey] != null
@@ -442,9 +530,9 @@ async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, 
 }
 
 async function fetchNearestEmergencyFacilities(lat, lon) {
-  await updateNearestFacility(lat, lon, "healthcare.hospital", "nearestHospital", "nearestHospitalDistance", "Nearby Hospital", "No hospital found nearby", elHospitalDiag);
-  await updateNearestFacility(lat, lon, "service.police", "nearestPolice", "nearestPoliceDistance", "Nearby Police Station", "No police station found nearby", elPoliceDiag);
-  await updateNearestFacility(lat, lon, "service.vehicle.fuel", "nearestPetrol", "nearestPetrolDistance", "Nearby Petrol Pump", "No petrol pump found nearby", elPetrolDiag);
+  await updateNearestFacility(lat, lon, "healthcare.hospital", "nearestHospital", "nearestHospitalDistance", "nearestHospitalCoords", "Nearby Hospital", "No hospital found nearby", elHospitalDiag);
+  await updateNearestFacility(lat, lon, "service.police", "nearestPolice", "nearestPoliceDistance", "nearestPoliceCoords", "Nearby Police Station", "No police station found nearby", elPoliceDiag);
+  await updateNearestFacility(lat, lon, "service.vehicle.fuel", "nearestPetrol", "nearestPetrolDistance", "nearestPetrolCoords", "Nearby Petrol Pump", "No petrol pump found nearby", elPetrolDiag);
 }
 
 function setSafetyStatus(isCrash) {

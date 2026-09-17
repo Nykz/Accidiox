@@ -15,31 +15,45 @@ if (!file_exists(__DIR__ . '/geoapify_config.php')) {
 require_once 'geoapify_config.php';
 
 $type = isset($_GET['type']) ? $_GET['type'] : '';
-$lat  = isset($_GET['lat']) ? (float) $_GET['lat'] : null;
-$lon  = isset($_GET['lon']) ? (float) $_GET['lon'] : null;
 
-if ($lat === null || $lon === null) {
-    http_response_code(400);
-    echo json_encode(["error" => "lat and lon are required"]);
-    exit();
-}
-
-if ($type === 'reverse') {
-    $url = "https://api.geoapify.com/v1/geocode/reverse?lat={$lat}&lon={$lon}&format=json&apiKey={$geoapify_api_key}";
-} elseif ($type === 'places') {
-    $category = isset($_GET['category']) ? $_GET['category'] : '';
-    $allowed = ['healthcare.hospital', 'service.police', 'service.vehicle.fuel'];
-    if (!in_array($category, $allowed, true)) {
+if ($type === 'routing') {
+    $fromLat = isset($_GET['from_lat']) ? (float) $_GET['from_lat'] : null;
+    $fromLon = isset($_GET['from_lon']) ? (float) $_GET['from_lon'] : null;
+    $toLat   = isset($_GET['to_lat']) ? (float) $_GET['to_lat'] : null;
+    $toLon   = isset($_GET['to_lon']) ? (float) $_GET['to_lon'] : null;
+    if ($fromLat === null || $fromLon === null || $toLat === null || $toLon === null) {
         http_response_code(400);
-        echo json_encode(["error" => "invalid category"]);
+        echo json_encode(["error" => "from_lat, from_lon, to_lat, to_lon are required"]);
         exit();
     }
-    $url = "https://api.geoapify.com/v2/places?categories={$category}" .
-        "&filter=circle:{$lon},{$lat},8000&bias=proximity:{$lon},{$lat}&limit=15&apiKey={$geoapify_api_key}";
+    $url = "https://api.geoapify.com/v1/routing?waypoints={$fromLat},{$fromLon}|{$toLat},{$toLon}" .
+        "&mode=motorcycle&format=geojson&apiKey={$geoapify_api_key}";
 } else {
-    http_response_code(400);
-    echo json_encode(["error" => "type must be 'reverse' or 'places'"]);
-    exit();
+    $lat = isset($_GET['lat']) ? (float) $_GET['lat'] : null;
+    $lon = isset($_GET['lon']) ? (float) $_GET['lon'] : null;
+    if ($lat === null || $lon === null) {
+        http_response_code(400);
+        echo json_encode(["error" => "lat and lon are required"]);
+        exit();
+    }
+
+    if ($type === 'reverse') {
+        $url = "https://api.geoapify.com/v1/geocode/reverse?lat={$lat}&lon={$lon}&format=json&apiKey={$geoapify_api_key}";
+    } elseif ($type === 'places') {
+        $category = isset($_GET['category']) ? $_GET['category'] : '';
+        $allowed = ['healthcare.hospital', 'service.police', 'service.vehicle.fuel'];
+        if (!in_array($category, $allowed, true)) {
+            http_response_code(400);
+            echo json_encode(["error" => "invalid category"]);
+            exit();
+        }
+        $url = "https://api.geoapify.com/v2/places?categories={$category}" .
+            "&filter=circle:{$lon},{$lat},8000&bias=proximity:{$lon},{$lat}&limit=15&apiKey={$geoapify_api_key}";
+    } else {
+        http_response_code(400);
+        echo json_encode(["error" => "type must be 'reverse', 'places', or 'routing'"]);
+        exit();
+    }
 }
 
 $ch = curl_init($url);

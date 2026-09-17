@@ -627,11 +627,116 @@ body {
 .map-card {
   padding: 0;
   overflow: hidden;
+  position: relative;
+  /* Leaflet's own internal elements (zoom controls, attribution, tile
+     panes) use z-index values up to ~700 — without this, those compare
+     directly against page-level z-index (e.g. .bottom-bar's 100) instead
+     of being contained inside this card, letting the map visually sit on
+     top of the bottom nav. isolation:isolate forces a new stacking
+     context so nothing from inside this card can escape it. */
+  isolation: isolate;
+  z-index: 1;
 }
 
 .mini-map {
   height: 190px;
   width: 100%;
+}
+
+.map-recenter-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-1);
+  color: var(--primary);
+  cursor: pointer;
+  z-index: 2;
+}
+
+.map-recenter-btn:active {
+  transform: scale(0.92);
+}
+
+.map-recenter-btn .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.map-route-bar {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-1);
+  padding: 8px 8px 8px 12px;
+  z-index: 2;
+}
+
+.map-route-text {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-route-cancel-btn {
+  flex-shrink: 0;
+  border: none;
+  background: var(--danger-tint);
+  color: var(--danger);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.diag-value-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+.diag-navigate-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary-tint);
+  color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.diag-navigate-btn:active {
+  transform: scale(0.92);
+}
+
+.diag-navigate-btn .icon {
+  width: 15px;
+  height: 15px;
 }
 
 .rider-marker {
@@ -792,6 +897,7 @@ body {
   font-size: 13px;
   padding: 9px 0;
   border-bottom: 1px solid var(--outline-variant);
+  gap: 10px;
 }
 
 .diag-item:last-child {
@@ -805,6 +911,7 @@ body {
   display: flex;
   align-items: center;
   gap: 9px;
+  flex-shrink: 0;
 }
 
 .diag-icon {
@@ -820,6 +927,10 @@ body {
   border-radius: var(--radius-full);
   background-color: var(--bg-card-alt);
   color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .diag-value.online {
