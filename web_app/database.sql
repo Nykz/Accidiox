@@ -23,5 +23,21 @@ CREATE TABLE IF NOT EXISTS `accident_logs` (
 
 -- Insert a sample dummy log for testing
 INSERT INTO `accident_logs` (`status`, `tilt_angle`, `roll_angle`, `pitch_angle`, `latitude`, `longitude`, `speed_kmh`, `nearest_hospital`, `timestamp`)
-VALUES 
+VALUES
 ('CONFIRMED_CRASH', 62.4, 58.1, 15.2, 25.26770000, 82.99130000, 42.5, 'Sir Sunderlal Hospital, BHU', NOW());
+
+-- Single-row table holding the bike's most recent live position, updated
+-- continuously by the rider app while connected. This is what the admin
+-- portal's "live" marker reads — separate from accident_logs, which only
+-- gets a row when a crash is confirmed or canceled.
+CREATE TABLE IF NOT EXISTS `live_status` (
+    `id` INT PRIMARY KEY DEFAULT 1,
+    `latitude` DECIMAL(10, 8) DEFAULT NULL,
+    `longitude` DECIMAL(11, 8) DEFAULT NULL,
+    `speed_kmh` FLOAT DEFAULT 0.0,
+    `status` VARCHAR(50) DEFAULT 'SAFE',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `live_status` (`id`) VALUES (1)
+ON DUPLICATE KEY UPDATE `id` = `id`;

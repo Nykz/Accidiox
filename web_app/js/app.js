@@ -248,6 +248,27 @@ function updateLiveMap(lat, lon) {
   liveMap.panTo([lat, lon]);
 }
 
+// Heartbeat so the admin portal can show a genuinely live position
+// instead of only past incidents. Throttled — GPS updates can fire much
+// more often than the position actually needs reporting to the server.
+let lastPositionSync = 0;
+function syncLivePosition(lat, lon, speedKmh) {
+  const now = Date.now();
+  if (now - lastPositionSync < 8000) return;
+  lastPositionSync = now;
+
+  fetch("api/update_position.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      latitude: lat,
+      longitude: lon,
+      speed_kmh: speedKmh,
+      status: appState.isEmergencyActive ? "CRASH" : "SAFE"
+    })
+  }).catch((err) => console.warn("[Position Sync Error]", err));
+}
+
 function initGeolocation() {
   if ("geolocation" in navigator) {
     navigator.geolocation.watchPosition(
@@ -258,6 +279,7 @@ function initGeolocation() {
         appState.gpsAccuracy = pos.coords.accuracy ? Math.round(pos.coords.accuracy) : 10;
 
         elSpeedValue.textContent = appState.currentSpeed;
+        if (window.__setBikeSpeed) window.__setBikeSpeed(appState.currentSpeed);
         elLocationCoords.textContent = `${appState.currentLat.toFixed(4)} N, ${appState.currentLon.toFixed(4)} E (Accuracy: ${appState.gpsAccuracy}m)`;
         elGpsDiagStatus.textContent = "Active";
         elGpsDiagStatus.className = "diag-value online";
@@ -265,6 +287,7 @@ function initGeolocation() {
         reverseGeocodeAddress(appState.currentLat, appState.currentLon);
         fetchNearestEmergencyFacilities(appState.currentLat, appState.currentLon);
         updateLiveMap(appState.currentLat, appState.currentLon);
+        syncLivePosition(appState.currentLat, appState.currentLon, appState.currentSpeed);
       },
       (err) => {
         console.warn("[GPS] Fallback:", err.message);
@@ -316,10 +339,37 @@ function distanceKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// The public overpass-api.de instance frequently returns 429 (rate
+// limited) or 504 (overloaded) — seen repeatedly in testing — which is
+// why hospital/police lookups were failing outright. Try several public
+// mirrors in turn instead of giving up after the first one.
+const OVERPASS_MIRRORS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://overpass.openstreetmap.ru/api/interpreter"
+];
+
 async function findNearestFacility(lat, lon, amenity) {
-  const query = `[out:json];node(around:8000,${lat},${lon})["amenity"="${amenity}"];out 15;`;
-  const res = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-  const data = await res.json();
+  const query = `[out:json][timeout:12];node(around:8000,${lat},${lon})["amenity"="${amenity}"];out 15;`;
+  const url = (mirror) => `${mirror}?data=${encodeURIComponent(query)}`;
+
+  let data = null;
+  let lastError = null;
+  for (const mirror of OVERPASS_MIRRORS) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
+      const res = await fetch(url(mirror), { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+      break;
+    } catch (err) {
+      lastError = err;
+      console.warn(`[Overpass] ${mirror} failed:`, err.message);
+    }
+  }
+  if (!data) throw lastError || new Error("All Overpass mirrors failed");
   if (!data.elements || data.elements.length === 0) return null;
 
   let closest = null;
@@ -385,10 +435,6 @@ function handleTelemetry(data) {
 
   if (elRollValue) elRollValue.textContent = `${data.roll}°`;
   if (elPitchValue) elPitchValue.textContent = `${data.pitch}°`;
-
-  // Drive the 3D cluster's bike orientation from the bike's actual sensor
-  // readings — it only moves when the real bike does, never decoratively.
-  if (window.__setBikeTilt) window.__setBikeTilt(data.roll, data.pitch);
 
   // Check for Crash or Manual SOS Trigger
   if (cmd === "CRASH" || cmd === "MANUAL_SOS" || data.tilt >= 85.0) {

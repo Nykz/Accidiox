@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Blackbox Accident Investigation &amp; Analytics Dashboard</title>
+  <title>Accidiox Fleet Command Center</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,81 +12,86 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     :root {
-      --bg-page: #0a0d13;
-      --bg-card: rgba(24, 29, 41, 0.86);
-      --bg-card-alt: #1c222f;
-      --outline: rgba(255, 255, 255, 0.12);
-      --outline-variant: rgba(255, 255, 255, 0.07);
-      --text-main: #f3f5f9;
-      --text-sub: #9aa4b6;
-      --text-muted: #69707f;
-      --primary: #3b82f6;
-      --primary-hover: #2f6fe0;
-      --primary-tint: rgba(59, 130, 246, 0.14);
-      --success: #22c55e;
-      --success-tint: rgba(34, 197, 94, 0.14);
-      --danger: #ef4444;
-      --danger-tint: rgba(239, 68, 68, 0.15);
-      --shadow-1: 0 1px 2px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.25);
-      --shadow-2: 0 6px 20px rgba(0,0,0,.4);
+      --bg-page: #f1f2f5;
+      --bg-card: #ffffff;
+      --bg-card-alt: #f5f6f8;
+      --outline: #e3e5e9;
+      --outline-variant: #edeef1;
+      --text-main: #14161a;
+      --text-sub: #62666f;
+      --text-muted: #9297a1;
+      --primary: #2563eb;
+      --primary-hover: #1d4fc4;
+      --primary-tint: rgba(37, 99, 235, 0.08);
+      --success: #16a34a;
+      --success-tint: rgba(22, 163, 74, 0.10);
+      --danger: #dc2626;
+      --danger-tint: rgba(220, 38, 38, 0.08);
+      --warning: #d97706;
+      --warning-tint: rgba(217, 119, 6, 0.10);
+      --shadow-1: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+      --shadow-2: 0 8px 22px rgba(16,24,40,.1);
       --radius-lg: 18px;
       --radius-md: 13px;
-      --blur-glass: 24px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', system-ui, sans-serif; }
     .icon { width: 20px; height: 20px; display: inline-flex; flex-shrink: 0; vertical-align: middle; }
-    body {
-      background-color: var(--bg-page);
-      background-image:
-        radial-gradient(ellipse 900px 500px at 10% -10%, rgba(59,130,246,0.16), transparent 60%),
-        radial-gradient(ellipse 700px 500px at 100% 10%, rgba(239,68,68,0.10), transparent 55%);
-      background-attachment: fixed;
-      color: var(--text-main); padding: 20px;
-    }
-    .container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+    body { background-color: var(--bg-page); color: var(--text-main); padding: 20px; }
+    .container { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 
     .top-bar {
       display: flex; flex-wrap: wrap; row-gap: 14px; justify-content: space-between; align-items: center;
-      background: var(--bg-card); backdrop-filter: blur(var(--blur-glass)); -webkit-backdrop-filter: blur(var(--blur-glass));
-      padding: 16px 22px; border-radius: var(--radius-lg);
+      background: var(--bg-card); padding: 16px 22px; border-radius: var(--radius-lg);
       border: 1px solid var(--outline-variant); box-shadow: var(--shadow-1);
     }
     .top-bar-title { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1 1 240px; }
-    .top-bar h1 { overflow-wrap: break-word; }
-    @media (max-width: 560px) {
-      .top-bar h1 { font-size: 15.5px; }
-      .top-bar p { font-size: 11px; }
-    }
+    .top-bar h1 { overflow-wrap: break-word; font-size: 18px; font-weight: 700; color: var(--text-main); }
+    .top-bar p { font-size: 12px; color: var(--text-sub); margin-top: 2px; font-weight: 500; }
+    @media (max-width: 560px) { .top-bar h1 { font-size: 15.5px; } .top-bar p { font-size: 11px; } }
+
     .brand-mark {
       width: 42px; height: 42px; border-radius: var(--radius-md);
       background: linear-gradient(135deg, var(--primary), #22d3ee); color: #fff;
       display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-      box-shadow: 0 4px 16px rgba(59,130,246,0.45);
+      box-shadow: 0 4px 14px rgba(37,99,235,0.3);
     }
     .brand-mark .icon { width: 24px; height: 24px; }
-    .top-bar h1 { font-size: 18px; font-weight: 700; color: var(--text-main); }
-    .top-bar p { font-size: 12px; color: var(--text-sub); margin-top: 2px; font-weight: 500; }
     .back-link {
-      color: #7fb2ff; text-decoration: none; font-size: 13px; font-weight: 700;
+      color: var(--primary); text-decoration: none; font-size: 13px; font-weight: 700;
       display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px;
       border-radius: 999px; background-color: var(--primary-tint);
-      border: 1px solid rgba(59,130,246,0.26);
+      border: 1px solid rgba(37,99,235,0.18);
       white-space: nowrap; flex-shrink: 0;
     }
     .back-link .icon { width: 18px; height: 18px; }
+
+    /* Stat row */
+    .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    @media (max-width: 800px) { .stat-row { grid-template-columns: repeat(2, 1fr); } }
+    .stat-card {
+      background: var(--bg-card); border: 1px solid var(--outline-variant); border-radius: var(--radius-lg);
+      padding: 16px; box-shadow: var(--shadow-1);
+    }
+    .stat-label { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.4px; }
+    .stat-value { font-size: 24px; font-weight: 900; color: var(--text-main); margin-top: 6px; font-family: 'Roboto Mono', 'Roboto', monospace; }
+    .stat-value.small { font-size: 15px; font-family: 'Roboto', sans-serif; }
+    .stat-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+    .stat-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .stat-dot.live { background: var(--success); box-shadow: 0 0 0 4px var(--success-tint); animation: pulseDot 1.4s ease-in-out infinite; }
+    .stat-dot.idle { background: var(--text-muted); }
+    @keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
     .grid-layout { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: start; }
     @media (max-width: 900px) { .grid-layout { grid-template-columns: 1fr; } }
 
     .card {
-      background: var(--bg-card); backdrop-filter: blur(var(--blur-glass)); -webkit-backdrop-filter: blur(var(--blur-glass));
-      border: 1px solid var(--outline-variant);
+      background: var(--bg-card); border: 1px solid var(--outline-variant);
       border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-1);
     }
     .card-title {
       font-size: 14px; font-weight: 700; margin-bottom: 14px; text-transform: uppercase;
       letter-spacing: 0.3px; display: flex; justify-content: space-between; align-items: center;
-      color: var(--text-main);
+      color: var(--text-main); flex-wrap: wrap; row-gap: 8px;
     }
     .card-title-left { display: flex; align-items: center; gap: 8px; }
     .card-title .icon { color: var(--primary); width: 20px; height: 20px; }
@@ -94,14 +99,21 @@
       font-size: 11px; font-weight: 700; color: var(--success); background: var(--success-tint);
       padding: 4px 10px; border-radius: 999px; text-transform: none; letter-spacing: 0;
       display: inline-flex; align-items: center; gap: 4px;
-      border: 1px solid rgba(34,197,94,0.3);
+      border: 1px solid rgba(22,163,74,0.22);
     }
-    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+    .live-chip.idle { color: var(--text-muted); background: var(--bg-card-alt); border-color: var(--outline); }
+    .live-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .map-legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--text-sub); margin-bottom: 10px; flex-wrap: wrap; }
+    .map-legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend-swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 
     #map { height: 440px; border-radius: var(--radius-md); border: 1px solid var(--outline-variant); }
-    /* OSM tiles have no free no-key dark variant, so invert + hue-rotate the
-       standard tileset into a dark basemap that matches the cockpit theme. */
-    #map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.94) contrast(0.92) saturate(0.7); }
+
+    .live-marker-dot {
+      width: 16px; height: 16px; border-radius: 50%; background: var(--primary);
+      border: 3px solid #fff; box-shadow: 0 0 0 5px rgba(37,99,235,0.25), 0 2px 6px rgba(16,24,40,0.3);
+    }
 
     .table-container { overflow-x: auto; max-height: 440px; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
@@ -117,28 +129,20 @@
       padding: 4px 10px; border-radius: 999px; font-size: 10.5px; font-weight: 700;
       text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px;
     }
-    .status-crash { background: var(--danger-tint); color: #ff9c94; }
+    .status-crash { background: var(--danger-tint); color: var(--danger); }
     .status-canceled { background: var(--success-tint); color: var(--success); }
 
     .btn-refresh {
-      background: linear-gradient(135deg, var(--primary), #2563eb); color: #fff; border: none; padding: 8px 16px;
+      background: linear-gradient(135deg, var(--primary), #1d4fc4); color: #fff; border: none; padding: 8px 16px;
       border-radius: 999px; font-weight: 700; font-size: 12.5px; cursor: pointer;
-      display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 18px -4px rgba(59,130,246,0.45);
+      display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 14px -4px rgba(37,99,235,0.4);
     }
-    .btn-refresh:hover { background: linear-gradient(135deg, var(--primary-hover), #1d4fc4); }
+    .btn-refresh:hover { background: linear-gradient(135deg, var(--primary-hover), #1740a3); }
     .btn-refresh .icon { width: 17px; height: 17px; }
 
-    .map-link { color: #7fb2ff; text-decoration: none; font-weight: 600; }
+    .map-link { color: var(--primary); text-decoration: none; font-weight: 600; }
     .empty-row td { text-align: center; padding: 26px; color: var(--text-muted); }
-    .error-row td { text-align: center; padding: 26px; color: #ff9c94; }
-
-    /* Dark Leaflet popups to match the cockpit theme */
-    .leaflet-popup-content-wrapper, .leaflet-popup-tip {
-      background: #161b26; color: var(--text-main); box-shadow: var(--shadow-2);
-    }
-    .leaflet-popup-content { font-size: 12.5px; line-height: 1.5; }
-    .leaflet-container a.leaflet-popup-close-button { color: var(--text-sub); }
-    .leaflet-bar a, .leaflet-bar a:hover { background-color: #161b26; color: var(--text-main); border-bottom: 1px solid var(--outline-variant); }
+    .error-row td { text-align: center; padding: 26px; color: var(--danger); }
   </style>
 </head>
 <body>
@@ -146,10 +150,10 @@
 
     <div class="top-bar">
       <div class="top-bar-title">
-        <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.5a5 5 0 0 1 5 5V13H7V7.5a5 5 0 0 1 5-5z"/><line x1="4.5" y1="13" x2="19.5" y2="13"/><rect x="6.5" y="17.5" width="11" height="3.2" rx="1"/></svg></div>
+        <div class="brand-mark"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="17" r="3.2"/><circle cx="18" cy="17" r="3.2"/><path d="M6 17l3.5-8h4L18 17M9.5 9H8M13 9l1.8-3h2.7"/></svg></div>
         <div>
-          <h1>Emergency Blackbox Analytics &amp; Investigation Center</h1>
-          <p>IIT (BHU) Varanasi &middot; Smart Mobility &amp; Incident Response</p>
+          <h1>Accidiox Fleet Command Center</h1>
+          <p>Live tracking &amp; incident investigation</p>
         </div>
       </div>
       <a href="index.html" class="back-link">
@@ -158,15 +162,44 @@
       </a>
     </div>
 
+    <!-- Fleet Status Stat Row -->
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-label">Bike Status</div>
+        <div class="stat-value small" id="statLiveStatus"><span class="stat-dot idle" id="statLiveDot"></span>No Signal</div>
+        <div class="stat-sub" id="statLastSeen">Waiting for first update...</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Current Speed</div>
+        <div class="stat-value" id="statSpeed">--</div>
+        <div class="stat-sub">km/h</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Incidents</div>
+        <div class="stat-value" id="statTotalIncidents">0</div>
+        <div class="stat-sub">All-time recorded events</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Last Incident</div>
+        <div class="stat-value small" id="statLastIncident">None recorded</div>
+        <div class="stat-sub" id="statLastIncidentSub">&nbsp;</div>
+      </div>
+    </div>
+
     <div class="grid-layout">
-      <!-- Incident Map -->
+      <!-- Live + Incident Map -->
       <div class="card">
         <div class="card-title">
           <span class="card-title-left">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3.3 6.1v13.6L9 17.6l6 2.1 5.7-2.1V4l-5.7 2.1L9 4z"/><line x1="9" y1="4" x2="9" y2="17.6"/><line x1="15" y1="6.1" x2="15" y2="19.7"/></svg>
-            Incident Geospatial Map
+            Live Position &amp; Incident Map
           </span>
-          <span class="live-chip"><span class="live-dot"></span>Live GPS Tracking</span>
+          <span class="live-chip idle" id="mapLiveChip"><span class="live-dot"></span>Connecting...</span>
+        </div>
+        <div class="map-legend">
+          <span><span class="legend-swatch" style="background:var(--primary)"></span>Live bike position</span>
+          <span><span class="legend-swatch" style="background:var(--danger)"></span>Confirmed crash</span>
+          <span><span class="legend-swatch" style="background:var(--success)"></span>Canceled alert (false alarm)</span>
         </div>
         <div id="map"></div>
       </div>
@@ -195,7 +228,7 @@
               </tr>
             </thead>
             <tbody id="logsTbody">
-              <tr class="empty-row"><td colspan="6">Loading incident records from WAMP database...</td></tr>
+              <tr class="empty-row"><td colspan="6">Loading incident records...</td></tr>
             </tbody>
           </table>
         </div>
@@ -206,14 +239,63 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // Initialize Leaflet Map centered around IIT Varanasi
-    const map = L.map('map').setView([25.2677, 82.9913], 13);
+    const map = L.map('map').setView([20.5937, 78.9629], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    let markers = [];
+    let incidentMarkers = [];
+    let liveMarker = null;
+    let hasCenteredOnLive = false;
+
+    function timeAgoLabel(seconds) {
+      if (seconds == null) return 'Waiting for first update...';
+      if (seconds < 60) return `Updated ${seconds}s ago`;
+      if (seconds < 3600) return `Updated ${Math.floor(seconds / 60)}m ago`;
+      return `Updated ${Math.floor(seconds / 3600)}h ago`;
+    }
+
+    async function pollLivePosition() {
+      try {
+        const res = await fetch('api/get_position.php');
+        const json = await res.json();
+        const data = json.data;
+
+        if (!data || data.latitude === null || data.seconds_ago > 90) {
+          document.getElementById('statLiveStatus').innerHTML = '<span class="stat-dot idle"></span>No Signal';
+          document.getElementById('statLastSeen').textContent = data ? `Last seen ${timeAgoLabel(data.seconds_ago).replace('Updated ', '')}` : 'Waiting for first update...';
+          document.getElementById('statSpeed').textContent = '--';
+          document.getElementById('mapLiveChip').className = 'live-chip idle';
+          document.getElementById('mapLiveChip').innerHTML = '<span class="live-dot"></span>No Live Signal';
+          return;
+        }
+
+        const isCrash = data.status === 'CRASH';
+        document.getElementById('statLiveStatus').innerHTML =
+          `<span class="stat-dot ${isCrash ? '' : 'live'}" style="${isCrash ? 'background:var(--danger)' : ''}"></span>${isCrash ? 'Crash Alert' : 'Online'}`;
+        document.getElementById('statLastSeen').textContent = timeAgoLabel(data.seconds_ago);
+        document.getElementById('statSpeed').textContent = Math.round(data.speed_kmh);
+        document.getElementById('mapLiveChip').className = 'live-chip';
+        document.getElementById('mapLiveChip').innerHTML = '<span class="live-dot"></span>Live Tracking Active';
+
+        const latlng = [parseFloat(data.latitude), parseFloat(data.longitude)];
+        if (!liveMarker) {
+          const icon = L.divIcon({ className: 'live-marker-dot', iconSize: [16, 16] });
+          liveMarker = L.marker(latlng, { icon, zIndexOffset: 1000 }).addTo(map);
+          liveMarker.bindPopup('<b>Live bike position</b>');
+        } else {
+          liveMarker.setLatLng(latlng);
+        }
+
+        if (!hasCenteredOnLive) {
+          hasCenteredOnLive = true;
+          map.setView(latlng, 15);
+        }
+      } catch (err) {
+        console.warn('Live position poll failed:', err);
+      }
+    }
 
     async function loadIncidentLogs() {
       try {
@@ -223,11 +305,16 @@
         const tbody = document.getElementById('logsTbody');
         tbody.innerHTML = '';
 
-        // Clear previous map markers
-        markers.forEach(m => map.removeLayer(m));
-        markers = [];
+        incidentMarkers.forEach(m => map.removeLayer(m));
+        incidentMarkers = [];
 
         if (res.data && res.data.length > 0) {
+          document.getElementById('statTotalIncidents').textContent = res.data.length;
+          const latest = res.data[0];
+          document.getElementById('statLastIncident').textContent =
+            latest.status === 'CONFIRMED_CRASH' ? 'Crash Confirmed' : 'False Alarm';
+          document.getElementById('statLastIncidentSub').textContent = latest.timestamp;
+
           res.data.forEach(log => {
             const isCrash = log.status === 'CONFIRMED_CRASH';
             const badgeClass = isCrash ? 'status-crash' : 'status-canceled';
@@ -244,35 +331,37 @@
             `;
             tbody.appendChild(tr);
 
-            // Add pin to Map if coordinates exist
             if (log.latitude && log.longitude) {
-              const marker = L.marker([log.latitude, log.longitude]).addTo(map);
+              const marker = L.circleMarker([log.latitude, log.longitude], {
+                radius: 8,
+                color: isCrash ? '#dc2626' : '#16a34a',
+                fillColor: isCrash ? '#dc2626' : '#16a34a',
+                fillOpacity: 0.85,
+                weight: 2
+              }).addTo(map);
               marker.bindPopup(`
-                <b>Incident ID: #${log.id}</b><br/>
+                <b>Incident #${log.id}</b><br/>
                 <b>Status:</b> ${log.status}<br/>
                 <b>Tilt Angle:</b> ${log.tilt_angle}&deg;<br/>
                 <b>Hospital:</b> ${log.nearest_hospital}<br/>
                 <small>${log.timestamp}</small>
               `);
-              markers.push(marker);
+              incidentMarkers.push(marker);
             }
           });
-
-          // Center map on latest incident
-          if (markers.length > 0) {
-            map.panTo(markers[0].getLatLng());
-          }
         } else {
-          tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accidents recorded in WAMP database yet.</td></tr>';
+          document.getElementById('statTotalIncidents').textContent = '0';
+          tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No accidents recorded yet.</td></tr>';
         }
       } catch (err) {
         console.warn('Error fetching logs:', err);
-        document.getElementById('logsTbody').innerHTML = '<tr class="error-row"><td colspan="6">Unable to connect to WAMP Server. Ensure Apache &amp; MySQL are running in WAMP.</td></tr>';
+        document.getElementById('logsTbody').innerHTML = '<tr class="error-row"><td colspan="6">Unable to reach the database. Check that api/db_config.php has the correct live credentials.</td></tr>';
       }
     }
 
-    // Load logs on page open
     loadIncidentLogs();
+    pollLivePosition();
+    setInterval(pollLivePosition, 6000);
   </script>
 </body>
 </html>
