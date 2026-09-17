@@ -12,3 +12,22 @@ RewriteRule ^\.git - [F,L]
 
 RewriteCond %{REQUEST_URI} !^/web_app/
 RewriteRule ^(.*)$ /web_app/$1 [L]
+
+# Hostinger's default static-file caching sets a 7-day Cache-Control on
+# JS/CSS, which meant visitors (and I, while testing) kept silently
+# seeing old code for up to a week after every deploy with no way to
+# tell. Force revalidation instead: still cacheable (fast on repeat
+# loads via the existing ETag/Last-Modified, so a 304 comes back when
+# nothing changed), but the browser always checks first rather than
+# trusting a week-old copy blindly. The 3D model is the one exception —
+# its filename doesn't change across deploys, so it keeps a long cache;
+# everything else here is small enough that revalidating every time is
+# effectively free.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|html)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.glb$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>

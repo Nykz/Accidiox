@@ -254,9 +254,15 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
     // model's root already carries a baked-in up-axis correction from
     // export, and overwriting its .rotation.y directly composes with that
     // in confusing, hard-to-predict ways. A clean empty parent group has
-    // no such baggage, so a 180° flip on it always does exactly what it
-    // looks like: verified by direct screenshot before landing this.
-    bikeAnchor.rotation.y = Math.PI;
+    // no such baggage, so a rotation on it always does exactly what it
+    // looks like.
+    //
+    // The model's nose sits at local +Z (confirmed via an axis-helper
+    // side-view render), and the resting camera's "up" is world -Z (see
+    // upEnd below), meaning +Z maps to the BOTTOM of the screen. No
+    // rotation needed here for the nose to face the viewer/bottom of the
+    // cluster rather than away toward the top.
+    bikeAnchor.rotation.y = 0;
     scene.add(bikeAnchor);
 
     const loader = new GLTFLoader();
