@@ -386,14 +386,19 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
     }
 
     const camStart = new THREE.Vector3(0, 0.55, 2.6);
-    const camEnd = new THREE.Vector3(0.001, 7.2, -0.001);
-    const lookTarget = new THREE.Vector3(0, 0.5, 0);
-    // A camera looking straight down has its view direction parallel to
-    // the default "up" vector (0,1,0), which makes lookAt()'s orientation
-    // undefined/unstable — rotate "up" toward (0,0,-1) as the camera rises
-    // so it's always perpendicular to the view direction, never parallel.
+    // A rear three-quarter "chase cam" angle instead of the previous
+    // near-vertical top-down (0.001, 7.2, -0.001) — pulled back and down
+    // on the -Z side (behind the bike, since the nose faces +Z) to about
+    // 55° below horizontal, closer to a racing-game follow camera while
+    // still showing the whole bike + road within the small cluster canvas.
+    const camEnd = new THREE.Vector3(0, 4.3, -3.2);
+    const lookTarget = new THREE.Vector3(0, 0.6, 0.2);
+    // Neither end of this sweep looks straight down any more (camEnd is
+    // ~55° off vertical, not 0°), so a constant world-up is always valid —
+    // no need to rotate "up" toward (0,0,-1) to dodge the lookAt()
+    // singularity the old near-vertical camEnd used to hit.
     const upStart = new THREE.Vector3(0, 1, 0);
-    const upEnd = new THREE.Vector3(0, 0, -1);
+    const upEnd = new THREE.Vector3(0, 1, 0);
     const introDuration = 2200;
     let startTime = null;
 
