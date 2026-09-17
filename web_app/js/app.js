@@ -7,6 +7,13 @@ const CONFIG = {
   wampApiUrl: "api/log_accident.php"
 };
 
+// Geoapify handles reverse geocoding (location naming) and nearby-place
+// search (hospital/police/petrol pump) - replaced the free public
+// Nominatim/Overpass endpoints, which were frequently timing out/rate-
+// limited and gave coarse location names that missed smaller localities.
+// Calls go through our own api/geoapify_proxy.php rather than embedding
+// the API key directly in this public, git-tracked file.
+
 let appState = {
   currentLat: null,
   currentLon: null,
@@ -15,6 +22,7 @@ let appState = {
   gpsAccuracy: null,
   nearestHospital: "Locating hospital...",
   nearestPolice: "Locating police precinct...",
+  nearestPetrol: "Locating petrol pump...",
   isEmergencyActive: false,
   countdownTimer: null,
   remainingSeconds: 20,
@@ -52,6 +60,7 @@ const elLocationName     = document.getElementById("locationName");
 const elLocationCoords   = document.getElementById("locationCoords");
 const elHospitalDiag     = document.getElementById("hospitalDiag");
 const elPoliceDiag       = document.getElementById("policeDiag");
+const elPetrolDiag       = document.getElementById("petrolDiag");
 
 const elGpsDiagStatus    = document.getElementById("gpsDiagStatus");
 const elBleDiagStatus    = document.getElementById("bleDiagStatus");
@@ -346,15 +355,20 @@ function initGeolocation() {
 
 async function reverseGeocodeAddress(lat, lon) {
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+    const res = await fetch(`api/geoapify_proxy.php?type=reverse&lat=${lat}&lon=${lon}`);
     const data = await res.json();
-    if (data && data.address) {
-      const addr = data.address;
-      const locality = addr.suburb || addr.neighbourhood || addr.road || addr.village || addr.county || "";
-      const city = addr.city || addr.town || addr.state_district || "";
-      const state = addr.state || "";
+    const result = data && data.results && data.results[0];
+    if (result) {
+      // Prefer the smallest/most local name first (a specific locality like
+      // "Panjabari") and fall back to broader ones only if it's missing.
+      const locality = result.suburb || result.district || result.neighbourhood || result.neighborhood
+        || result.quarter || result.village || "";
+      const city = result.city || result.county || "";
+      const state = result.state || "";
       const parts = [locality, city, state].filter(Boolean);
-      appState.currentLocationName = parts.length > 0 ? parts.join(", ") : data.display_name.split(",").slice(0, 3).join(",");
+      appState.currentLocationName = parts.length > 0
+        ? parts.join(", ")
+        : (result.formatted || "Current Riding Location");
     } else {
       appState.currentLocationName = "Current Riding Location";
     }
@@ -377,89 +391,60 @@ function distanceKm(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// The public overpass-api.de instance frequently returns 429 (rate
-// limited) or 504 (overloaded) — seen repeatedly in testing — which is
-// why hospital/police lookups were failing outright. Try several public
-// mirrors in turn instead of giving up after the first one.
-const OVERPASS_MIRRORS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://overpass.openstreetmap.ru/api/interpreter"
-];
+// Geoapify Places API - category is one of "healthcare.hospital",
+// "service.police", "service.vehicle.fuel". bias=proximity already sorts
+// by distance from the rider, but the haversine re-sort is kept as a
+// cheap safety net rather than trusting that blindly.
+async function findNearestFacility(lat, lon, category) {
+  const url = `api/geoapify_proxy.php?type=places&category=${category}&lat=${lat}&lon=${lon}`;
 
-async function findNearestFacility(lat, lon, amenity) {
-  const query = `[out:json][timeout:12];node(around:8000,${lat},${lon})["amenity"="${amenity}"];out 15;`;
-  const url = (mirror) => `${mirror}?data=${encodeURIComponent(query)}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 9000);
+  const res = await fetch(url, { signal: controller.signal });
+  clearTimeout(timeoutId);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
 
-  let data = null;
-  let lastError = null;
-  for (const mirror of OVERPASS_MIRRORS) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 9000);
-      const res = await fetch(url(mirror), { signal: controller.signal });
-      clearTimeout(timeoutId);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      data = await res.json();
-      break;
-    } catch (err) {
-      lastError = err;
-      console.warn(`[Overpass] ${mirror} failed:`, err.message);
-    }
-  }
-  if (!data) throw lastError || new Error("All Overpass mirrors failed");
-  if (!data.elements || data.elements.length === 0) return null;
+  if (!data.features || data.features.length === 0) return null;
 
   let closest = null;
   let closestDist = Infinity;
-  for (const el of data.elements) {
-    const d = distanceKm(lat, lon, el.lat, el.lon);
+  for (const feature of data.features) {
+    const [flon, flat] = feature.geometry.coordinates;
+    const d = distanceKm(lat, lon, flat, flon);
     if (d < closestDist) {
       closestDist = d;
-      closest = el;
+      closest = feature;
     }
   }
-  return { name: closest.tags.name || null, distanceKm: closestDist };
+  return { name: (closest.properties && closest.properties.name) || null, distanceKm: closestDist };
+}
+
+async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, fallbackName, notFoundText, el) {
+  try {
+    const found = await findNearestFacility(lat, lon, category);
+    if (found) {
+      appState[stateKey] = found.name || fallbackName;
+      appState[distanceKey] = found.distanceKm;
+    } else {
+      appState[stateKey] = notFoundText;
+      appState[distanceKey] = null;
+    }
+  } catch (err) {
+    appState[stateKey] = `Unable to locate ${fallbackName.toLowerCase()}`;
+    appState[distanceKey] = null;
+  }
+  if (el) {
+    el.textContent = appState[distanceKey] != null
+      ? `${appState[stateKey]} (${appState[distanceKey].toFixed(1)} km)`
+      : appState[stateKey];
+  }
 }
 
 async function fetchNearestEmergencyFacilities(lat, lon) {
-  try {
-    const hospital = await findNearestFacility(lat, lon, "hospital");
-    if (hospital) {
-      appState.nearestHospital = hospital.name || "Nearby Hospital";
-      appState.nearestHospitalDistance = hospital.distanceKm;
-    } else {
-      appState.nearestHospital = "No hospital found nearby";
-      appState.nearestHospitalDistance = null;
-    }
-  } catch (err) {
-    appState.nearestHospital = "Unable to locate hospital";
-    appState.nearestHospitalDistance = null;
-  }
-  if (elHospitalDiag) {
-    elHospitalDiag.textContent = appState.nearestHospitalDistance != null
-      ? `${appState.nearestHospital} (${appState.nearestHospitalDistance.toFixed(1)} km)`
-      : appState.nearestHospital;
-  }
-
-  try {
-    const police = await findNearestFacility(lat, lon, "police");
-    if (police) {
-      appState.nearestPolice = police.name || "Nearby Police Station";
-      appState.nearestPoliceDistance = police.distanceKm;
-    } else {
-      appState.nearestPolice = "No police station found nearby";
-      appState.nearestPoliceDistance = null;
-    }
-  } catch (err) {
-    appState.nearestPolice = "Unable to locate police station";
-    appState.nearestPoliceDistance = null;
-  }
-  if (elPoliceDiag) {
-    elPoliceDiag.textContent = appState.nearestPoliceDistance != null
-      ? `${appState.nearestPolice} (${appState.nearestPoliceDistance.toFixed(1)} km)`
-      : appState.nearestPolice;
-  }
+  await updateNearestFacility(lat, lon, "healthcare.hospital", "nearestHospital", "nearestHospitalDistance", "Nearby Hospital", "No hospital found nearby", elHospitalDiag);
+  await updateNearestFacility(lat, lon, "service.police", "nearestPolice", "nearestPoliceDistance", "Nearby Police Station", "No police station found nearby", elPoliceDiag);
+  await updateNearestFacility(lat, lon, "service.vehicle.fuel", "nearestPetrol", "nearestPetrolDistance", "Nearby Petrol Pump", "No petrol pump found nearby", elPetrolDiag);
 }
 
 function setSafetyStatus(isCrash) {

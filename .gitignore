@@ -21,6 +21,9 @@ web_app/api/db_config.php
 # access token.
 web_app/api/meta_whatsapp_config.php
 
+# Same reasoning again, for the Geoapify API key.
+web_app/api/geoapify_config.php
+
 # Raw Sketchfab download (model + zip) — the actual copy used by the app
 # lives at web_app/assets/models/yamaha_r1.glb, which IS tracked.
 /3d models/
