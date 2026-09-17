@@ -10,6 +10,16 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include <BluetoothA2DPSink.h>
+// Requires the "ESP32-A2DP" library by pschatzmann (Arduino Library
+// Manager -> search "ESP32-A2DP" -> Install). This pairs the ESP32 as a
+// REAL classic-Bluetooth device (like a pair of earbuds) so these buttons
+// can control whatever music app is actually playing on the phone
+// (Spotify, YouTube Music, etc.) - a website/PWA can never do that, only a
+// true Bluetooth Classic + AVRCP connection can reach into another app's
+// playback. It runs alongside the existing BLE telemetry link to the
+// Accidiox app via ESP32 dual mode (BTDM) - two independent Bluetooth
+// connections sharing the one radio.
 
 // ---------------- Pin Configurations ----------------
 #define PIN_BUZZER       4   // Piezo Buzzer Pin
@@ -44,6 +54,78 @@ BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
+
+// ---------------- Media Remote (Classic BT AVRCP Controller) ----------------
+BluetoothA2DPSink a2dp_sink;
+bool mediaIsPlaying = false;
+
+const unsigned long BTN_DEBOUNCE_MS = 40;
+const unsigned long BTN_DOUBLE_CLICK_WINDOW_MS = 350;
+
+// Up/Down need single-vs-double-click disambiguation (Vol+/Vol- vs
+// Next/Prev Track). A single click only resolves once the double-click
+// window passes without a second press, so it fires up to ~350ms after
+// the tap - that delay is an unavoidable trade-off of this scheme, not a
+// bug, and is standard behavior for any single/double-click button.
+struct ClickButton {
+  bool lastReading = HIGH;
+  unsigned long lastChangeTime = 0;
+  unsigned long lastReleaseTime = 0;
+  bool waitingForSecondClick = false;
+};
+ClickButton btnUpClick, btnDownClick;
+
+// Returns 0 = nothing yet, 1 = single click resolved, 2 = double click detected
+int pollClickButton(ClickButton &btn, int pin) {
+  bool reading = digitalRead(pin);
+  int result = 0;
+
+  if (reading != btn.lastReading && (millis() - btn.lastChangeTime) > BTN_DEBOUNCE_MS) {
+    btn.lastChangeTime = millis();
+    btn.lastReading = reading;
+
+    if (reading == LOW) {
+      // Press edge: is this the second click of a double-click?
+      if (btn.waitingForSecondClick && (millis() - btn.lastReleaseTime) <= BTN_DOUBLE_CLICK_WINDOW_MS) {
+        result = 2;
+        btn.waitingForSecondClick = false;
+      }
+    } else {
+      // Release edge: start (or restart) the double-click window
+      btn.lastReleaseTime = millis();
+      btn.waitingForSecondClick = true;
+    }
+  }
+
+  // Window expired with no second click -> resolve as a single click
+  if (btn.waitingForSecondClick && (millis() - btn.lastReleaseTime) > BTN_DOUBLE_CLICK_WINDOW_MS) {
+    btn.waitingForSecondClick = false;
+    result = 1;
+  }
+
+  return result;
+}
+
+// Center button only needs a plain debounced press edge (play/pause toggle,
+// no double-click ambiguity) - separate from the crash-dismiss check below,
+// which uses the raw level read further down so it keeps working exactly
+// as before while a crash alarm is active.
+struct SimpleButton {
+  bool lastReading = HIGH;
+  unsigned long lastChangeTime = 0;
+};
+SimpleButton btnCenterEdge;
+
+bool pollPressEdge(SimpleButton &btn, int pin) {
+  bool reading = digitalRead(pin);
+  bool pressed = false;
+  if (reading != btn.lastReading && (millis() - btn.lastChangeTime) > BTN_DEBOUNCE_MS) {
+    btn.lastChangeTime = millis();
+    btn.lastReading = reading;
+    if (reading == LOW) pressed = true;
+  }
+  return pressed;
+}
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -148,6 +230,13 @@ void setup() {
     Serial.println(F("[ERROR] MPU-6050 NOT DETECTED! Check SDA=GPIO21, SCL=GPIO22."));
   }
 
+  // 4.5 Initialize Classic Bluetooth Media Remote (AVRCP). Must be started
+  // BEFORE BLEDevice::init() below, with dual mode set first, or the two
+  // Bluetooth stacks won't coexist correctly on the same radio.
+  a2dp_sink.set_default_bt_mode(ESP_BT_MODE_BTDM);
+  a2dp_sink.start("Accidiox Remote");
+  Serial.println(F("[MEDIA] Classic BT Remote Ready. Pair \"Accidiox Remote\" in your phone's Bluetooth Settings (separately from the app)."));
+
   // 5. Initialize BLE Telemetry Server
   BLEDevice::init("Bike-Blackbox-ESP32");
   pServer = BLEDevice::createServer();
@@ -240,6 +329,42 @@ void loop() {
     } else if (btnDownPressed) {
       statusPayload = BTN_DOWN;
       Serial.println(F("[BUTTON 3 - GPIO 25] PRESSED (Vol- / Prev Track)"));
+    }
+  }
+
+  // ---------------- Media Remote Button Actions ----------------
+  // Independent of the BLE test-payload above so the on-screen button-flash
+  // in the app keeps working exactly as before. Suppressed during an active
+  // crash so the center button's crash-dismiss above takes priority.
+  if (!isCrashActive) {
+    int upClick = pollClickButton(btnUpClick, PIN_BTN_UP);
+    if (upClick == 1) {
+      a2dp_sink.volume_up();
+      Serial.println(F("[MEDIA] Volume Up"));
+    } else if (upClick == 2) {
+      a2dp_sink.next();
+      Serial.println(F("[MEDIA] Next Track"));
+    }
+
+    int downClick = pollClickButton(btnDownClick, PIN_BTN_DOWN);
+    if (downClick == 1) {
+      a2dp_sink.volume_down();
+      Serial.println(F("[MEDIA] Volume Down"));
+    } else if (downClick == 2) {
+      a2dp_sink.previous();
+      Serial.println(F("[MEDIA] Previous Track"));
+    }
+
+    if (pollPressEdge(btnCenterEdge, PIN_BTN_CENTER)) {
+      if (mediaIsPlaying) {
+        a2dp_sink.pause();
+        mediaIsPlaying = false;
+        Serial.println(F("[MEDIA] Pause"));
+      } else {
+        a2dp_sink.play();
+        mediaIsPlaying = true;
+        Serial.println(F("[MEDIA] Play"));
+      }
     }
   }
 

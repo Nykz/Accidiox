@@ -271,6 +271,15 @@ body {
     flex-direction: column;
     align-items: stretch;
   }
+  .connect-meta {
+    /* .connect-meta's normal "flex: 1 1 180px" sets a 180px flex-basis
+       meant as a min-WIDTH for the row layout above - once the container
+       switches to column direction here, that same flex-basis controls
+       HEIGHT instead, forcing this icon+text block to be 180px tall and
+       leaving a large dead gap before the button. Reset it to size by
+       content in column mode. */
+    flex: 0 0 auto;
+  }
   .connect-actions {
     flex-direction: row;
   }
@@ -399,6 +408,50 @@ body {
   font-size: 12px;
   font-weight: 700;
   color: var(--text-sub);
+}
+
+.cluster-switch-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-1);
+  color: var(--text-main);
+  cursor: pointer;
+  z-index: 2;
+}
+
+.cluster-switch-btn:active {
+  transform: scale(0.92);
+}
+
+.cluster-switch-btn .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.cluster-switch-label {
+  position: absolute;
+  top: 52px;
+  right: 14px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-1);
+  z-index: 2;
+  white-space: nowrap;
 }
 
 .cluster-fallback {

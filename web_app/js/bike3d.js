@@ -17,8 +17,27 @@
 
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+// The black Yamaha and Vespa files are meshopt-compressed (95MB -> ~1-4MB
+// each after optimizing textures/geometry for this small on-screen
+// cluster) - this decoder is required to load THOSE two files. The
+// original blue Yamaha isn't compressed and ignores it harmlessly.
 
 (function () {
+  // Each model's wheel nodes were identified geometrically (bounding-box
+  // shape/position analysis, not name lookup - none of these exports have
+  // semantic mesh names). The Vespa has no wheelNodes: Sketchfab merged
+  // both its wheels into one mesh spanning the whole scooter, so spinning
+  // it as a rigid piece would rotate the wheels around the scooter's
+  // center like a pinwheel instead of each spinning around its own axle -
+  // visibly wrong, so it's left static (still switchable, just no spin).
+  const BIKE_MODELS = [
+    { key: "yamaha_blue", label: "Yamaha R1", path: "assets/models/yamaha_r1.glb", wheelNodes: ["Object_8", "Object_19"] },
+    { key: "yamaha_black", label: "Yamaha R1 (Black)", path: "assets/models/yamaha_r1_black.glb", wheelNodes: ["Object_23", "Object_24"] },
+    { key: "vespa", label: "Vespa Scooter", path: "assets/models/vespa.glb", wheelNodes: [] }
+  ];
+  const BIKE_STORAGE_KEY = "accidiox_selected_bike";
+
   let wheelMeshes = [];
   let currentSpeedKmh = 0;
   let spinLoopRunning = false;
@@ -266,35 +285,66 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
     scene.add(bikeAnchor);
 
     const loader = new GLTFLoader();
-    loader.load(
-      "assets/models/yamaha_r1.glb",
-      (gltf) => {
-        const model = gltf.scene;
+    loader.setMeshoptDecoder(MeshoptDecoder);
 
-        // Model came in at real-world scale already (~2.2m long) with its
-        // bottom already sitting almost exactly at y=0 — no repositioning
-        // needed, just added to the pre-rotated bikeAnchor above.
-        model.traverse((m) => {
-          if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
-        });
+    let currentModelIndex = 0;
+    const savedKey = localStorage.getItem(BIKE_STORAGE_KEY);
+    const savedIndex = BIKE_MODELS.findIndex((m) => m.key === savedKey);
+    if (savedIndex >= 0) currentModelIndex = savedIndex;
 
-        // Identified geometrically (generic "Object_N" names carry no
-        // meaning): the two meshes with a near-perfect circular
-        // cross-section, positioned symmetrically front/rear.
-        const frontWheel = model.getObjectByName("Object_8");
-        const rearWheel = model.getObjectByName("Object_19");
-        wheelMeshes = [frontWheel, rearWheel].filter(Boolean);
+    function loadModel(entry) {
+      // Clear whatever's currently in the anchor (previous model or the
+      // fallback bike) before loading the new one.
+      while (bikeAnchor.children.length > 0) bikeAnchor.remove(bikeAnchor.children[0]);
+      wheelMeshes = [];
 
-        bikeAnchor.add(model);
-        if (spinRenderFn) spinRenderFn();
-      },
-      undefined,
-      (err) => {
-        console.warn("[3D Cluster] Yamaha model failed to load, using fallback bike:", err.message || err);
-        bikeAnchor.add(buildFallbackBike());
-        if (spinRenderFn) spinRenderFn();
-      }
-    );
+      loader.load(
+        entry.path,
+        (gltf) => {
+          const model = gltf.scene;
+
+          // Every model here came in at real-world scale already, sitting
+          // at y=0 — no repositioning needed, just added to the
+          // pre-rotated bikeAnchor above.
+          model.traverse((m) => {
+            if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
+          });
+
+          const found = entry.wheelNodes
+            .map((name) => model.getObjectByName(name))
+            .filter(Boolean);
+          wheelMeshes = found;
+
+          bikeAnchor.add(model);
+          if (spinRenderFn) spinRenderFn();
+        },
+        undefined,
+        (err) => {
+          console.warn(`[3D Cluster] ${entry.label} failed to load, using fallback bike:`, err.message || err);
+          bikeAnchor.add(buildFallbackBike());
+          if (spinRenderFn) spinRenderFn();
+        }
+      );
+    }
+
+    loadModel(BIKE_MODELS[currentModelIndex]);
+
+    const switchBtn = document.getElementById("btnSwitchBike");
+    const switchLabel = document.getElementById("bikeSwitchLabel");
+    function updateSwitchLabel() {
+      if (switchLabel) switchLabel.textContent = BIKE_MODELS[currentModelIndex].label;
+    }
+    updateSwitchLabel();
+
+    if (switchBtn) {
+      switchBtn.addEventListener("click", () => {
+        currentModelIndex = (currentModelIndex + 1) % BIKE_MODELS.length;
+        const entry = BIKE_MODELS[currentModelIndex];
+        localStorage.setItem(BIKE_STORAGE_KEY, entry.key);
+        updateSwitchLabel();
+        loadModel(entry);
+      });
+    }
 
     const camStart = new THREE.Vector3(0, 0.55, 2.6);
     const camEnd = new THREE.Vector3(0.001, 7.2, -0.001);
