@@ -143,6 +143,43 @@
     .map-link { color: var(--primary); text-decoration: none; font-weight: 600; }
     .empty-row td { text-align: center; padding: 26px; color: var(--text-muted); }
     .error-row td { text-align: center; padding: 26px; color: var(--danger); }
+
+    /* Mobile layout: tighter spacing, shorter map, and the log table
+       becomes a stacked card list instead of a cramped 6-column table
+       (a real horizontal table can't fit six columns on a ~380px phone
+       screen no matter how small the font goes). */
+    @media (max-width: 640px) {
+      body { padding: 10px; }
+      .container { gap: 12px; }
+      .top-bar { padding: 12px 14px; border-radius: var(--radius-md); }
+      .stat-row { gap: 10px; }
+      .stat-card { padding: 12px; }
+      .stat-value { font-size: 19px; }
+      .card { padding: 14px; border-radius: var(--radius-md); }
+      #map { height: 280px; }
+
+      .table-container { max-height: none; overflow-x: visible; }
+      table, thead, tbody, th, tr, td { display: block; }
+      thead { display: none; }
+      #logsTbody tr {
+        border: 1px solid var(--outline-variant); border-radius: var(--radius-md);
+        margin-bottom: 10px; padding: 4px 12px; background: var(--bg-card);
+      }
+      #logsTbody tr.empty-row, #logsTbody tr.error-row { padding: 20px 12px; }
+      #logsTbody td {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--outline-variant);
+        text-align: right;
+      }
+      #logsTbody td:last-child { border-bottom: none; }
+      #logsTbody td::before {
+        content: attr(data-label); font-size: 11px; font-weight: 700;
+        color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.3px;
+        text-align: left;
+      }
+      #logsTbody tr.empty-row td::before, #logsTbody tr.error-row td::before { content: none; }
+      #logsTbody tr.empty-row td, #logsTbody tr.error-row td { justify-content: center; border-bottom: none; }
+    }
   </style>
 </head>
 <body>
@@ -322,12 +359,12 @@
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-              <td>${log.timestamp}</td>
-              <td><span class="status-badge ${badgeClass}">${badgeText}</span></td>
-              <td><b>${log.tilt_angle}&deg;</b></td>
-              <td>${log.speed_kmh} km/h</td>
-              <td><a class="map-link" href="https://maps.google.com/?q=${log.latitude},${log.longitude}" target="_blank">${log.latitude ? String(log.latitude).substring(0,6) : '0'}, ${log.longitude ? String(log.longitude).substring(0,6) : '0'}</a></td>
-              <td>${log.nearest_hospital}</td>
+              <td data-label="Time">${log.timestamp}</td>
+              <td data-label="Status"><span class="status-badge ${badgeClass}">${badgeText}</span></td>
+              <td data-label="Tilt"><b>${log.tilt_angle}&deg;</b></td>
+              <td data-label="Speed">${log.speed_kmh} km/h</td>
+              <td data-label="Location"><a class="map-link" href="https://maps.google.com/?q=${log.latitude},${log.longitude}" target="_blank">${log.latitude ? String(log.latitude).substring(0,6) : '0'}, ${log.longitude ? String(log.longitude).substring(0,6) : '0'}</a></td>
+              <td data-label="Hospital">${log.nearest_hospital}</td>
             `;
             tbody.appendChild(tr);
 

@@ -2,7 +2,7 @@
 // Never intercepts BLE, geolocation, or the api/*.php, Nominatim, Overpass
 // and WhatsApp calls; those always hit the network live.
 
-const CACHE_NAME = "accidiox-shell-v8";
+const CACHE_NAME = "accidiox-shell-v9";
 const SHELL_FILES = [
   "index.html",
   "css/style.css",
@@ -28,6 +28,20 @@ self.addEventListener("activate", (event) => {
     )
   );
   self.clients.claim();
+});
+
+// Tapping the crash notification should bring the already-open app to the
+// front (or open it) rather than leaving the notification just sitting there.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ("focus" in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow("./");
+    })
+  );
 });
 
 self.addEventListener("fetch", (event) => {

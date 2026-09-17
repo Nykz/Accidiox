@@ -71,13 +71,23 @@ const elUiBtn2           = document.getElementById("uiBtn2");
 const elUiBtn3           = document.getElementById("uiBtn3");
 
 document.addEventListener("DOMContentLoaded", () => {
-  elBtnConnectMain.addEventListener("click", () => {
-    bleManager.connect();
-    requestWakeLock();
-  });
+  elBtnConnectMain.addEventListener("click", () => bleManager.connect());
   elBtnDisconnect.addEventListener("click", () => {
     bleManager.disconnect();
     releaseWakeLock();
+  });
+
+  requestNotificationPermission();
+
+  // The Wake Lock API is force-released by the OS whenever the app is
+  // backgrounded even briefly (switching apps, screen auto-lock kicking
+  // in before the ride starts, etc.) — it does NOT come back on its own,
+  // so it must be re-requested every time the app becomes visible again
+  // while still connected to the bike.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && bleManager.isConnected) {
+      requestWakeLock();
+    }
   });
   elBtnCancelSos.addEventListener("click", () => cancelEmergency());
 
@@ -143,6 +153,34 @@ function releaseWakeLock() {
     appState.wakeLock.release();
     appState.wakeLock = null;
   }
+}
+
+// System notification: a backup alarm channel in case the screen still
+// went dark despite the wake lock (e.g. OEM battery-saver overriding it).
+// A real Android notification can vibrate and light up the lock screen
+// without the page itself needing to be visible or running — unlike the
+// in-page modal/siren, which only works while the app is in the foreground.
+function requestNotificationPermission() {
+  if ("Notification" in window && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
+}
+
+function fireCrashNotification() {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (!("serviceWorker" in navigator)) return;
+
+  navigator.serviceWorker.ready.then((reg) => {
+    reg.showNotification("Crash Detected — Accidiox", {
+      body: "Open the app now to confirm you're safe, or SOS will be sent automatically.",
+      icon: "assets/icons/icon-192.png",
+      badge: "assets/icons/icon-192.png",
+      vibrate: [800, 200, 800, 200, 800],
+      tag: "accidiox-crash",
+      requireInteraction: true,
+      renotify: true
+    }).catch((err) => console.warn("[Notification] Failed to show:", err));
+  });
 }
 
 // Emergency Contacts (persisted locally on this rider's phone)
@@ -489,6 +527,7 @@ function handleConnectionState(isConnected, info) {
     if (elHeaderBadgeSlash) elHeaderBadgeSlash.style.display = "none";
 
     startRideTimer();
+    requestWakeLock();
   } else {
     elHeaderBadge.className = "badge-status";
     elHeaderBadgeText.textContent = "Disconnected";
@@ -542,6 +581,7 @@ function triggerEmergencyRoutine(crashData) {
   startSirenAudio();
   triggerPhoneVibration();
   speakVoice("Warning! Accident detected. Press cancel if safe.");
+  fireCrashNotification();
 
   if (appState.countdownTimer) clearInterval(appState.countdownTimer);
 
