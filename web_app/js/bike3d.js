@@ -32,9 +32,9 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
   // center like a pinwheel instead of each spinning around its own axle -
   // visibly wrong, so it's left static (still switchable, just no spin).
   const BIKE_MODELS = [
-    { key: "yamaha_blue", label: "Yamaha R1", path: "assets/models/yamaha_r1.glb", wheelNodes: ["Object_8", "Object_19"] },
-    { key: "yamaha_black", label: "Yamaha R1 (Black)", path: "assets/models/yamaha_r1_black.glb", wheelNodes: ["Object_23", "Object_24"] },
-    { key: "vespa", label: "Vespa Scooter", path: "assets/models/vespa.glb", wheelNodes: [] }
+    { key: "yamaha_blue", label: "Yamaha R1", path: "assets/models/yamaha_r1.glb", wheelNodes: ["Object_8", "Object_19"], rotationY: 0 },
+    { key: "yamaha_black", label: "Yamaha R1 (Black)", path: "assets/models/yamaha_r1_black.glb", wheelNodes: ["Object_23", "Object_24"], rotationY: Math.PI / 2 },
+    { key: "vespa", label: "Vespa Scooter", path: "assets/models/vespa.glb", wheelNodes: [], rotationY: 0 }
   ];
   const BIKE_STORAGE_KEY = "accidiox_selected_bike";
 
@@ -68,17 +68,52 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
     canvas.width = 256;
     canvas.height = 512;
     const ctx = canvas.getContext("2d");
-    ctx.fillStyle = "#d7dade";
+
+    // Shoulder (either side of the road)
+    ctx.fillStyle = "#c7cbd1";
     ctx.fillRect(0, 0, 256, 512);
-    ctx.fillStyle = "#7b7f88";
+
+    // Asphalt strip with a subtle vertical gradient for depth, rather than
+    // one flat color - reads as pavement instead of a plain gray block.
+    const roadGrad = ctx.createLinearGradient(58, 0, 198, 0);
+    roadGrad.addColorStop(0, "#5b5f68");
+    roadGrad.addColorStop(0.5, "#6b6f79");
+    roadGrad.addColorStop(1, "#5b5f68");
+    ctx.fillStyle = roadGrad;
     ctx.fillRect(58, 0, 140, 512);
+
+    // Asphalt grain - many tiny random-opacity specks read as texture at
+    // this size without needing an actual photo texture.
+    for (let i = 0; i < 900; i++) {
+      const x = 58 + Math.random() * 140;
+      const y = Math.random() * 512;
+      const shade = Math.random() > 0.5 ? 255 : 0;
+      ctx.fillStyle = `rgba(${shade},${shade},${shade},${(Math.random() * 0.06).toFixed(3)})`;
+      ctx.fillRect(x, y, 1.4, 1.4);
+    }
+
+    // Solid white edge lines where asphalt meets the shoulder
+    ctx.strokeStyle = "rgba(255,255,255,0.85)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(62, 0); ctx.lineTo(62, 512);
+    ctx.moveTo(194, 0); ctx.lineTo(194, 512);
+    ctx.stroke();
+
+    // Center dashed lane line with a faint glow so it reads clearly
+    // against the darker asphalt.
+    ctx.save();
+    ctx.shadowColor = "rgba(255,255,255,0.5)";
+    ctx.shadowBlur = 6;
     ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 9;
+    ctx.lineWidth = 8;
     ctx.setLineDash([42, 34]);
     ctx.beginPath();
     ctx.moveTo(128, 0);
     ctx.lineTo(128, 512);
     ctx.stroke();
+    ctx.restore();
+
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.RepeatWrapping;
@@ -305,7 +340,11 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
           // Every model here came in at real-world scale already, sitting
           // at y=0 — no repositioning needed, just added to the
-          // pre-rotated bikeAnchor above.
+          // pre-rotated bikeAnchor above. Each export can have its own
+          // arbitrary forward axis though (confirmed geometrically per
+          // model, not guessed) - entry.rotationY corrects that so every
+          // model's nose ends up facing the same direction on screen.
+          model.rotation.y = entry.rotationY || 0;
           model.traverse((m) => {
             if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
           });
