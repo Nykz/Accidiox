@@ -24,43 +24,53 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 // original blue Yamaha isn't compressed and ignores it harmlessly.
 
 (function () {
-  // Each model's wheel nodes were identified geometrically (bounding-box
-  // shape/position analysis, not name lookup - none of these exports have
-  // semantic mesh names). The Vespa has no wheelNodes: Sketchfab merged
-  // both its wheels into one mesh spanning the whole scooter, so spinning
-  // it as a rigid piece would rotate the wheels around the scooter's
-  // center like a pinwheel instead of each spinning around its own axle -
-  // visibly wrong, so it's left static (still switchable, just no spin).
+  // rotationY per model corrects each Sketchfab export's own arbitrary
+  // forward axis (confirmed geometrically, not guessed) so every model's
+  // nose-tail line points the same way in world space. The bike no longer
+  // animates at all (see the motion notes further down), so wheel meshes
+  // don't need to be identified any more - only alignment matters here.
   const BIKE_MODELS = [
-    { key: "yamaha_blue", label: "Yamaha R1", path: "assets/models/yamaha_r1.glb", wheelNodes: ["Object_8", "Object_19"], rotationY: 0 },
-    { key: "yamaha_black", label: "Yamaha R1 (Black)", path: "assets/models/yamaha_r1_black.glb", wheelNodes: ["Object_23", "Object_24"], rotationY: Math.PI / 2 },
-    { key: "vespa", label: "Vespa Scooter", path: "assets/models/vespa.glb", wheelNodes: [], rotationY: Math.PI / 2 }
+    { key: "yamaha_blue", label: "Yamaha R1", path: "assets/models/yamaha_r1.glb", rotationY: 0 },
+    { key: "yamaha_black", label: "Yamaha R1 (Black)", path: "assets/models/yamaha_r1_black.glb", rotationY: Math.PI / 2 },
+    { key: "vespa", label: "Vespa Scooter", path: "assets/models/vespa.glb", rotationY: Math.PI / 2 }
   ];
   const BIKE_STORAGE_KEY = "accidiox_selected_bike";
 
-  let wheelMeshes = [];
+  // The bike itself (body AND wheels) never animates, at any speed,
+  // including a crawl at 1 km/h — it's a fixed dashboard display, not a
+  // literal animation of the bike driving. Motion is instead conveyed by
+  // scrolling the road texture under it, like a BMW/Tesla instrument
+  // cluster's vehicle icon staying still while the road/map moves.
   let currentSpeedKmh = 0;
-  let spinLoopRunning = false;
+  let roadTexture = null;
+  let motionLoopRunning = false;
   let spinRenderFn = null;
 
   function setSpeed(kmh) {
     currentSpeedKmh = Math.max(0, kmh || 0);
-    if (currentSpeedKmh > 0 && !spinLoopRunning) {
-      spinLoopRunning = true;
-      requestAnimationFrame(spinLoop);
+    if (currentSpeedKmh > 0 && !motionLoopRunning) {
+      motionLoopRunning = true;
+      requestAnimationFrame(motionLoop);
     }
   }
   window.__setBikeSpeed = setSpeed;
 
-  function spinLoop() {
+  function motionLoop() {
     if (currentSpeedKmh <= 0) {
-      spinLoopRunning = false;
+      motionLoopRunning = false;
       return;
     }
-    const radiansPerFrame = (currentSpeedKmh / 3.6) * 0.02;
-    wheelMeshes.forEach((w) => { w.rotation.x += radiansPerFrame; });
+    if (roadTexture) {
+      // Texture scrolls "toward" the camera (increasing offset) to read as
+      // the road passing under a forward-moving bike. A true real-world-
+      // scale rate (this plane/texture repeat is sized in meters) works
+      // out to ~0.006, but that reads as a frantic strobe on a small
+      // dashboard canvas - deliberately slower than physically accurate
+      // for a calmer, more legible motion cue.
+      roadTexture.offset.y += (currentSpeedKmh / 3.6) * 0.003;
+    }
     if (spinRenderFn) spinRenderFn();
-    requestAnimationFrame(spinLoop);
+    requestAnimationFrame(motionLoop);
   }
 
   function makeRoadTexture() {
@@ -126,7 +136,6 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
   // fairing/tail read clearly as "motorcycle" from directly above.
   function buildFallbackBike() {
     const group = new THREE.Group();
-    wheelMeshes = [];
 
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2f6fe0, metalness: 0.55, roughness: 0.25 });
     const fairingMat = new THREE.MeshStandardMaterial({ color: 0x1d4fc4, metalness: 0.5, roughness: 0.3 });
@@ -146,7 +155,6 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
       wheel.add(tire, rim);
       wheel.position.set(0, 0.42, z);
       wheel.traverse((m) => { m.castShadow = true; });
-      wheelMeshes.push(wheel);
       return wheel;
     }
     group.add(makeWheel(-0.98), makeWheel(0.98));
@@ -292,9 +300,10 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.65));
 
+    roadTexture = makeRoadTexture();
     const ground = new THREE.Mesh(
       new THREE.PlaneGeometry(9, 16),
-      new THREE.MeshStandardMaterial({ map: makeRoadTexture(), roughness: 0.95, metalness: 0 })
+      new THREE.MeshStandardMaterial({ map: roadTexture, roughness: 0.95, metalness: 0 })
     );
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = 0;
@@ -331,7 +340,6 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
       // Clear whatever's currently in the anchor (previous model or the
       // fallback bike) before loading the new one.
       while (bikeAnchor.children.length > 0) bikeAnchor.remove(bikeAnchor.children[0]);
-      wheelMeshes = [];
 
       loader.load(
         entry.path,
@@ -348,11 +356,6 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
           model.traverse((m) => {
             if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
           });
-
-          const found = entry.wheelNodes
-            .map((name) => model.getObjectByName(name))
-            .filter(Boolean);
-          wheelMeshes = found;
 
           bikeAnchor.add(model);
           if (spinRenderFn) spinRenderFn();
@@ -388,11 +391,14 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
     const camStart = new THREE.Vector3(0, 0.55, 2.6);
     // A rear three-quarter "chase cam" angle instead of the previous
     // near-vertical top-down (0.001, 7.2, -0.001) — pulled back and down
-    // on the -Z side (behind the bike, since the nose faces +Z) to about
-    // 55° below horizontal, closer to a racing-game follow camera while
-    // still showing the whole bike + road within the small cluster canvas.
-    const camEnd = new THREE.Vector3(0, 4.3, -3.2);
-    const lookTarget = new THREE.Vector3(0, 0.6, 0.2);
+    // to about 55° below horizontal, closer to a racing-game follow camera
+    // while still showing the whole bike + road within the small cluster
+    // canvas. Same +Z side as camStart (confirmed empirically, not by
+    // re-deriving the axis convention: the old top-down view made
+    // front/back visually near-symmetric, so the nose direction wasn't
+    // actually verified until this angle made it obvious).
+    const camEnd = new THREE.Vector3(0, 4.3, 3.2);
+    const lookTarget = new THREE.Vector3(0, 0.6, -0.2);
     // Neither end of this sweep looks straight down any more (camEnd is
     // ~55° off vertical, not 0°), so a constant world-up is always valid —
     // no need to rotate "up" toward (0,0,-1) to dodge the lookAt()
