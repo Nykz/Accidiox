@@ -135,6 +135,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const elBtnNavChoiceCancel = document.getElementById("btnNavChoiceCancel");
   if (elBtnNavChoiceCancel) elBtnNavChoiceCancel.addEventListener("click", () => closeNavChoiceModal());
 
+  const elBtnCopyLocation = document.getElementById("btnCopyLocation");
+  if (elBtnCopyLocation) elBtnCopyLocation.addEventListener("click", copyLocationToClipboard);
+
   initGeolocation();
   testServerConnection();
 
@@ -327,6 +330,28 @@ function updateLiveMap(lat, lon) {
 function recenterLiveMap() {
   if (!liveMap || appState.currentLat == null || appState.currentLon == null) return;
   liveMap.setView([appState.currentLat, appState.currentLon], 15);
+}
+
+// Text selection is disabled app-wide (see style.css) so long-pressing
+// anywhere doesn't trigger Android's native "Copy / Share / Search with
+// Google" toolbar - this button is the one place that still needs to
+// hand the rider their location, just via a deliberate tap instead.
+async function copyLocationToClipboard() {
+  const btn = document.getElementById("btnCopyLocation");
+  if (appState.currentLat == null || appState.currentLon == null) return;
+
+  const text = `${appState.currentLocationName} — ${appState.currentLat.toFixed(4)}, ${appState.currentLon.toFixed(4)}`;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (err) {
+    console.warn("[Copy Location] Clipboard write failed:", err);
+    return;
+  }
+
+  if (btn) {
+    btn.classList.add("copied");
+    setTimeout(() => btn.classList.remove("copied"), 1500);
+  }
 }
 
 const NAV_TARGETS = {

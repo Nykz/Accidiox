@@ -34,7 +34,8 @@
       --radius-lg: 18px;
       --radius-md: 13px;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', system-ui, sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Roboto', system-ui, sans-serif; -webkit-user-select: none; -webkit-touch-callout: none; user-select: none; }
+    input, textarea { -webkit-user-select: text; user-select: text; }
     .icon { width: 20px; height: 20px; display: inline-flex; flex-shrink: 0; vertical-align: middle; }
     body { background-color: var(--bg-page); color: var(--text-main); padding: 20px; }
     .container { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }

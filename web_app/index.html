@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="css/style.css?v=19" />
+  <link rel="stylesheet" href="css/style.css?v=20" />
 </head>
 <body>
 
@@ -104,6 +104,9 @@
           <div id="locationName" class="location-name">Acquiring GPS location...</div>
           <div id="locationCoords" class="location-coords">Satellite positioning standby</div>
         </div>
+        <button id="btnCopyLocation" class="location-copy-btn" type="button" title="Copy location">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.5" y="8.5" width="12" height="12" rx="2.2"/><path d="M15.5 8.5V5.7a1.2 1.2 0 0 0-1.2-1.2H4.7a1.2 1.2 0 0 0-1.2 1.2v9.6a1.2 1.2 0 0 0 1.2 1.2h2.8"/></svg>
+        </button>
       </section>
 
       <!-- Live Position Mini Map -->
@@ -316,10 +319,10 @@
     }
   }
   </script>
-  <script type="module" src="js/bike3d.js?v=19"></script>
+  <script type="module" src="js/bike3d.js?v=20"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="js/bluetooth.js?v=19"></script>
-  <script src="js/app.js?v=19"></script>
+  <script src="js/bluetooth.js?v=20"></script>
+  <script src="js/app.js?v=20"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
