@@ -679,18 +679,34 @@ _This alert was generated automatically by the Smart Blackbox Safety System._`;
   dispatchWhatsAppToContacts(waText);
 }
 
-// Opens a WhatsApp deep link for every saved emergency contact. Browsers only
-// allow one navigation via location.href, so the primary contact gets that
-// (most reliable, works even if popups are blocked) and the rest open in new
-// tabs; any tab a popup blocker stops is also listed so the rider or a
-// bystander at the scene can tap it manually.
-function dispatchWhatsAppToContacts(message) {
+// Tries to send the SOS via the Twilio WhatsApp API first — that delivers
+// with zero taps on the receiving end, unlike a wa.me link (which WhatsApp
+// always makes a human confirm). Any contact Twilio couldn't reach (not
+// configured yet, or that contact hasn't joined the sandbox) falls back to
+// opening a wa.me link for just that contact, so nobody silently misses
+// the alert.
+async function dispatchWhatsAppToContacts(message) {
   if (!appState.contacts || appState.contacts.length === 0) return;
+
+  let autoResults = [];
+  try {
+    const res = await fetch("api/send_whatsapp_sos.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, contacts: appState.contacts })
+    });
+    const data = await res.json();
+    if (data.status === "done") autoResults = data.results;
+  } catch (err) {
+    console.warn("[WhatsApp Auto-Send] Request failed, falling back to manual links:", err);
+  }
 
   const encoded = encodeURIComponent(message);
   const buildUrl = (phone) => `https://api.whatsapp.com/send?phone=${phone}&text=${encoded}`;
+  const sentPhones = new Set(autoResults.filter((r) => r.sent).map((r) => r.phone));
+  const needsFallback = appState.contacts.filter((c) => !sentPhones.has(c.phone));
 
-  appState.contacts.forEach((contact, index) => {
+  needsFallback.forEach((contact, index) => {
     const url = buildUrl(contact.phone);
     if (index === 0) {
       window.location.href = url;
