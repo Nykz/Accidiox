@@ -146,29 +146,181 @@ document.addEventListener("DOMContentLoaded", () => {
   bleManager.tryAutoReconnect();
 });
 
-// Bottom-nav view switching (Overview <-> Settings), no page reload so the
-// BLE connection never drops just from checking settings.
+// Bottom-nav view switching (Overview <-> Settings <-> Incident Map), no
+// page reload so the BLE connection and ride timer never drop just from
+// checking settings or incident history.
 function showView(name) {
   const home = document.getElementById("homeView");
   const settings = document.getElementById("settingsView");
+  const mapView = document.getElementById("mapView");
   const navOverview = document.getElementById("navOverview");
   const navSettings = document.getElementById("navSettings");
-  if (!home || !settings) return;
+  const navMap = document.getElementById("navMap");
+  if (!home || !settings || !mapView) return;
 
-  const showSettings = name === "settings";
-  home.style.display = showSettings ? "none" : "flex";
-  settings.style.display = showSettings ? "flex" : "none";
-  navOverview.classList.toggle("active", !showSettings);
-  navSettings.classList.toggle("active", showSettings);
+  home.style.display = name === "home" ? "flex" : "none";
+  settings.style.display = name === "settings" ? "flex" : "none";
+  mapView.style.display = name === "map" ? "flex" : "none";
+  navOverview.classList.toggle("active", name === "home");
+  navSettings.classList.toggle("active", name === "settings");
+  navMap.classList.toggle("active", name === "map");
   window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
 
   // Leaflet renders tiles wrong if it was sized while hidden — fix it up
   // now that the container is visible again.
-  if (!showSettings && liveMap) {
+  if (name === "home" && liveMap) {
     setTimeout(() => liveMap.invalidateSize(), 50);
+  }
+  if (name === "map") {
+    initIncidentMapView();
+    setTimeout(() => { if (incidentMap) incidentMap.invalidateSize(); }, 50);
   }
 }
 window.showView = showView;
+
+// ============== Incident Map View (merged from the old admin.html) ==============
+// Kept as an in-page view instead of a separate page navigation - the whole
+// point is that switching to it never tears down the live BLE connection,
+// ride timer, or GPS state the way loading a different HTML document would.
+let incidentMap = null;
+let incidentMapInitialized = false;
+let incidentMarkers = [];
+let incidentLiveMarker = null;
+let hasCenteredOnIncidentLive = false;
+let incidentPollInterval = null;
+
+function initIncidentMapView() {
+  if (incidentMapInitialized) return;
+  incidentMapInitialized = true;
+
+  incidentMap = L.map("incidentMap").setView([20.5937, 78.9629], 5);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+  }).addTo(incidentMap);
+
+  const elBtnRefreshLogs = document.getElementById("btnRefreshLogs");
+  if (elBtnRefreshLogs) elBtnRefreshLogs.addEventListener("click", loadIncidentLogs);
+
+  loadIncidentLogs();
+  pollLiveIncidentPosition();
+  incidentPollInterval = setInterval(pollLiveIncidentPosition, 6000);
+}
+
+function timeAgoLabel(seconds) {
+  if (seconds == null) return "Waiting for first update...";
+  if (seconds < 60) return `Updated ${seconds}s ago`;
+  if (seconds < 3600) return `Updated ${Math.floor(seconds / 60)}m ago`;
+  return `Updated ${Math.floor(seconds / 3600)}h ago`;
+}
+
+async function pollLiveIncidentPosition() {
+  try {
+    const res = await fetch("api/get_position.php");
+    const json = await res.json();
+    const data = json.data;
+
+    const elStatLiveStatus = document.getElementById("statLiveStatus");
+    const elStatLastSeen = document.getElementById("statLastSeen");
+    const elStatSpeed = document.getElementById("statSpeed");
+    const elMapLiveChip = document.getElementById("mapLiveChip");
+
+    if (!data || data.latitude === null || data.seconds_ago > 90) {
+      elStatLiveStatus.innerHTML = '<span class="stat-dot idle"></span>No Signal';
+      elStatLastSeen.textContent = data ? `Last seen ${timeAgoLabel(data.seconds_ago).replace("Updated ", "")}` : "Waiting for first update...";
+      elStatSpeed.textContent = "--";
+      elMapLiveChip.className = "live-chip idle";
+      elMapLiveChip.innerHTML = '<span class="live-dot"></span>No Live Signal';
+      return;
+    }
+
+    const isCrash = data.status === "CRASH";
+    elStatLiveStatus.innerHTML =
+      `<span class="stat-dot ${isCrash ? "" : "live"}" style="${isCrash ? "background:var(--danger)" : ""}"></span>${isCrash ? "Crash Alert" : "Online"}`;
+    elStatLastSeen.textContent = timeAgoLabel(data.seconds_ago);
+    elStatSpeed.textContent = Math.round(data.speed_kmh);
+    elMapLiveChip.className = "live-chip";
+    elMapLiveChip.innerHTML = '<span class="live-dot"></span>Live Tracking Active';
+
+    const latlng = [parseFloat(data.latitude), parseFloat(data.longitude)];
+    if (!incidentLiveMarker) {
+      const icon = L.divIcon({ className: "live-marker-dot", iconSize: [16, 16] });
+      incidentLiveMarker = L.marker(latlng, { icon, zIndexOffset: 1000 }).addTo(incidentMap);
+      incidentLiveMarker.bindPopup("<b>Live bike position</b>");
+    } else {
+      incidentLiveMarker.setLatLng(latlng);
+    }
+
+    if (!hasCenteredOnIncidentLive) {
+      hasCenteredOnIncidentLive = true;
+      incidentMap.setView(latlng, 15);
+    }
+  } catch (err) {
+    console.warn("Live position poll failed:", err);
+  }
+}
+
+async function loadIncidentLogs() {
+  const elLogList = document.getElementById("incidentLogList");
+  try {
+    const response = await fetch("api/get_logs.php");
+    const res = await response.json();
+
+    elLogList.innerHTML = "";
+    incidentMarkers.forEach((m) => incidentMap.removeLayer(m));
+    incidentMarkers = [];
+
+    if (res.data && res.data.length > 0) {
+      document.getElementById("statTotalIncidents").textContent = res.data.length;
+      const latest = res.data[0];
+      document.getElementById("statLastIncident").textContent =
+        latest.status === "CONFIRMED_CRASH" ? "Crash Confirmed" : "False Alarm";
+      document.getElementById("statLastIncidentSub").textContent = latest.timestamp;
+
+      res.data.forEach((log) => {
+        const isCrash = log.status === "CONFIRMED_CRASH";
+        const badgeClass = isCrash ? "status-crash" : "status-canceled";
+        const badgeText = isCrash ? "Crash Confirmed" : "Canceled (Safe)";
+
+        const card = document.createElement("div");
+        card.className = "incident-log-card";
+        card.innerHTML = `
+          <div class="incident-log-row"><span class="incident-log-row-label">Time</span><span>${log.timestamp}</span></div>
+          <div class="incident-log-row"><span class="incident-log-row-label">Status</span><span class="status-badge ${badgeClass}">${badgeText}</span></div>
+          <div class="incident-log-row"><span class="incident-log-row-label">Tilt</span><span><b>${log.tilt_angle}&deg;</b></span></div>
+          <div class="incident-log-row"><span class="incident-log-row-label">Speed</span><span>${log.speed_kmh} km/h</span></div>
+          <div class="incident-log-row"><span class="incident-log-row-label">Location</span><span><a class="map-link" href="https://maps.google.com/?q=${log.latitude},${log.longitude}" target="_blank">${log.latitude ? String(log.latitude).substring(0, 6) : "0"}, ${log.longitude ? String(log.longitude).substring(0, 6) : "0"}</a></span></div>
+          <div class="incident-log-row"><span class="incident-log-row-label">Hospital</span><span>${log.nearest_hospital}</span></div>
+        `;
+        elLogList.appendChild(card);
+
+        if (log.latitude && log.longitude) {
+          const marker = L.circleMarker([log.latitude, log.longitude], {
+            radius: 8,
+            color: isCrash ? "#dc2626" : "#16a34a",
+            fillColor: isCrash ? "#dc2626" : "#16a34a",
+            fillOpacity: 0.85,
+            weight: 2
+          }).addTo(incidentMap);
+          marker.bindPopup(`
+            <b>Incident #${log.id}</b><br/>
+            <b>Status:</b> ${log.status}<br/>
+            <b>Tilt Angle:</b> ${log.tilt_angle}&deg;<br/>
+            <b>Hospital:</b> ${log.nearest_hospital}<br/>
+            <small>${log.timestamp}</small>
+          `);
+          incidentMarkers.push(marker);
+        }
+      });
+    } else {
+      document.getElementById("statTotalIncidents").textContent = "0";
+      elLogList.innerHTML = '<div class="incident-log-empty">No accidents recorded yet.</div>';
+    }
+  } catch (err) {
+    console.warn("Error fetching logs:", err);
+    elLogList.innerHTML = '<div class="incident-log-error">Unable to reach the database.</div>';
+  }
+}
 
 // Screen WakeLock
 async function requestWakeLock() {

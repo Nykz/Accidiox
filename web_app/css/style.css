@@ -79,6 +79,14 @@ textarea {
   vertical-align: middle;
 }
 
+html {
+  /* Stops the browser's native pull-to-refresh gesture from reloading the
+     whole page (and wiping the ride timer / BLE connection / live state)
+     when someone overscrolls past the top of the page — a native app has
+     no such gesture, so a PWA/TWA shouldn't either. */
+  overscroll-behavior-y: none;
+}
+
 body {
   background-color: var(--bg-page);
   color: var(--text-main);
@@ -87,6 +95,7 @@ body {
   justify-content: center;
   align-items: flex-start;
   padding: 0;
+  overscroll-behavior-y: none;
 }
 
 .app-wrapper {
@@ -1414,4 +1423,251 @@ body {
 @keyframes shakeAlert {
   0% { transform: scale(1); }
   100% { transform: scale(1.04); }
+}
+
+/* ============== Incident Map View ==============
+   Merged in from what used to be a separate admin.html page. Keeping it as
+   an in-page view (toggled by showView(), same as Settings) instead of a
+   real page navigation means the BLE connection, ride timer, and all other
+   live state never gets torn down just from checking incident history. */
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.stat-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  box-shadow: var(--shadow-1);
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--text-main);
+  margin-top: 6px;
+  font-family: 'Roboto Mono', 'Roboto', monospace;
+}
+
+.stat-value.small {
+  font-size: 14px;
+  font-family: 'Roboto', sans-serif;
+}
+
+.stat-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.stat-dot.live {
+  background: var(--success);
+  box-shadow: 0 0 0 4px var(--success-tint);
+  animation: pulseDot 1.4s ease-in-out infinite;
+}
+
+.stat-dot.idle {
+  background: var(--text-muted);
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--text-main);
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.card-title-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .icon {
+  color: var(--primary);
+}
+
+.live-chip {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--success);
+  background: var(--success-tint);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(22, 163, 74, 0.22);
+}
+
+.live-chip.idle {
+  color: var(--text-muted);
+  background: var(--bg-card-alt);
+  border-color: var(--outline);
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.map-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-sub);
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.map-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+#incidentMap {
+  height: 260px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--outline-variant);
+}
+
+.live-marker-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.25), 0 2px 6px rgba(16, 24, 40, 0.3);
+}
+
+/* Log entries render as stacked cards (not a horizontal table) since the
+   app shell is always phone-width — a real 6-column table has no room. */
+.incident-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.incident-log-card {
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-md);
+  padding: 4px 12px;
+  background: var(--bg-card);
+}
+
+.incident-log-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--outline-variant);
+  text-align: right;
+}
+
+.incident-log-row:last-child {
+  border-bottom: none;
+}
+
+.incident-log-row-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  text-align: left;
+}
+
+.incident-log-empty,
+.incident-log-error {
+  text-align: center;
+  padding: 22px 12px;
+  color: var(--text-muted);
+}
+
+.incident-log-error {
+  color: var(--danger);
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-crash {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.status-canceled {
+  background: var(--success-tint);
+  color: var(--success);
+}
+
+.btn-refresh {
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px -4px rgba(37, 99, 235, 0.4);
+}
+
+.map-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
 }
