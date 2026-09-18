@@ -1,7 +1,8 @@
 /*
   =============================================================================
-  INDUSTRIAL SMART TWO-WHEELER BLACKBOX (CALIBRATED CRASH + BUTTON TESTER)
-  Threshold: 85.0 Degrees (Extreme Fall Only) + Instant Button LED Feedback
+  ACCIDIOX TWO-WHEELER BLACKBOX (CALIBRATED CRASH DETECTOR)
+  Threshold: 85.0 Degrees (Extreme Fall Only), Sustained-Hold Confirmed
+  Hardware: ESP32 + MPU-6050 + Buzzer + Hazard LED - nothing else.
   =============================================================================
 */
 
@@ -10,23 +11,14 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
-#include <BluetoothA2DPSink.h>
-// Requires the "ESP32-A2DP" library by pschatzmann (Arduino Library
-// Manager -> search "ESP32-A2DP" -> Install). This pairs the ESP32 as a
-// REAL classic-Bluetooth device (like a pair of earbuds) so these buttons
-// can control whatever music app is actually playing on the phone
-// (Spotify, YouTube Music, etc.) - a website/PWA can never do that, only a
-// true Bluetooth Classic + AVRCP connection can reach into another app's
-// playback. It runs alongside the existing BLE telemetry link to the
-// Accidiox app via ESP32 dual mode (BTDM) - two independent Bluetooth
-// connections sharing the one radio.
+// BLE only, used purely for crash telemetry to the Accidiox app. There are
+// no buttons and no Classic Bluetooth/media-remote on this build - alarm
+// cancellation happens entirely from the app's own "I Am Safe" button,
+// which works independent of the hardware.
 
 // ---------------- Pin Configurations ----------------
 #define PIN_BUZZER       4   // Piezo Buzzer Pin
 #define PIN_HAZARD_LED   19  // Hazard Strobe LED Pin
-#define PIN_BTN_UP       32  // Button 1 (Vol+ / Track Next)
-#define PIN_BTN_CENTER   33  // Button 2 (Play/Pause / Cancel SOS)
-#define PIN_BTN_DOWN     25  // Button 3 (Vol- / Track Prev)
 
 // ---------------- MPU-6050 I2C Registers ----------------
 #define MPU_ADDR 0x68
@@ -41,8 +33,41 @@ bool calibrated = false;
 const float CRASH_TILT_LIMIT = 85.0;
 const float RECOVERY_LIMIT   = 55.0; // Auto-disarm when returned upright (< 55 degrees)
 
+// ---------------- Anti-Vibration / False-Trigger Filtering ----------------
+// Two independent guards stop a bump, pothole, or hard-braking deceleration
+// from ever reaching the buzzer/LED - the goal is to only ever fire on an
+// actual fall, never on a transient:
+//   1) Magnitude gate - a sample is only trusted for tilt if its total
+//      magnitude is close to 1g (pure gravity). Any sample containing a
+//      large *linear* acceleration component (a bump, or the deceleration
+//      from hard braking) reads far from 1g and is simply ignored for that
+//      loop tick, so totalTilt just keeps its last trusted value.
+//   2) Sustained-hold confirmation - even a trusted high-tilt sample must
+//      stay above CRASH_TILT_LIMIT continuously for CRASH_CONFIRM_MS
+//      before the alarm actually fires. This is the deliberate physics
+//      argument: hard braking or a pothole can only distort the computed
+//      angle for as long as that deceleration event itself lasts, which is
+//      at most 1-2 seconds even for emergency braking - it cannot possibly
+//      hold the reading above threshold continuously for a full 5-10
+//      seconds, because the bike is still upright and moving the instant
+//      the event ends. A real fall, on the other hand, leaves the bike
+//      physically lying on the ground, so the tilt reading trivially stays
+//      pinned above threshold for as long as CRASH_CONFIRM_MS demands.
+//      A short CRASH_DIP_GRACE_MS tolerance is layered on top so that a
+//      single noisy sample dipping the reading below threshold for a
+//      moment (e.g. engine vibration while the bike is down) doesn't reset
+//      an otherwise-genuine, in-progress confirmation back to zero.
+const float ACCEL_MAG_MIN_G = 0.7;
+const float ACCEL_MAG_MAX_G = 1.3;
+const unsigned long CRASH_CONFIRM_MS = 7000;   // 7s - within the requested 5-10s window
+const unsigned long CRASH_DIP_GRACE_MS = 500;
+bool crashCandidateActive = false;
+unsigned long crashCandidateStartTime = 0;
+unsigned long lastAboveThresholdTime = 0;
+
 // State Variables
 bool isCrashActive = false;
+float totalTilt = 0.0; // persists across loop ticks so a rejected (gated) sample doesn't snap this back to 0
 unsigned long lastSerialPrint = 0;
 unsigned long lastBleStream = 0;
 
@@ -50,82 +75,17 @@ unsigned long lastBleStream = 0;
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
+// ---------------- BLE Status Payload Strings ----------------
+// Must match web_app/js/app.js handleTelemetry()'s cmd comparison exactly
+// (cmd === "CRASH"). Everything else (including cancellation) is handled
+// app-side, so the hardware only ever needs to report NORMAL or CRASH.
+#define NORMAL "NORMAL"
+#define CRASH  "CRASH"
+
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
-
-// ---------------- Media Remote (Classic BT AVRCP Controller) ----------------
-BluetoothA2DPSink a2dp_sink;
-bool mediaIsPlaying = false;
-
-const unsigned long BTN_DEBOUNCE_MS = 40;
-const unsigned long BTN_DOUBLE_CLICK_WINDOW_MS = 350;
-
-// Up/Down need single-vs-double-click disambiguation (Vol+/Vol- vs
-// Next/Prev Track). A single click only resolves once the double-click
-// window passes without a second press, so it fires up to ~350ms after
-// the tap - that delay is an unavoidable trade-off of this scheme, not a
-// bug, and is standard behavior for any single/double-click button.
-struct ClickButton {
-  bool lastReading = HIGH;
-  unsigned long lastChangeTime = 0;
-  unsigned long lastReleaseTime = 0;
-  bool waitingForSecondClick = false;
-};
-ClickButton btnUpClick, btnDownClick;
-
-// Returns 0 = nothing yet, 1 = single click resolved, 2 = double click detected
-int pollClickButton(ClickButton &btn, int pin) {
-  bool reading = digitalRead(pin);
-  int result = 0;
-
-  if (reading != btn.lastReading && (millis() - btn.lastChangeTime) > BTN_DEBOUNCE_MS) {
-    btn.lastChangeTime = millis();
-    btn.lastReading = reading;
-
-    if (reading == LOW) {
-      // Press edge: is this the second click of a double-click?
-      if (btn.waitingForSecondClick && (millis() - btn.lastReleaseTime) <= BTN_DOUBLE_CLICK_WINDOW_MS) {
-        result = 2;
-        btn.waitingForSecondClick = false;
-      }
-    } else {
-      // Release edge: start (or restart) the double-click window
-      btn.lastReleaseTime = millis();
-      btn.waitingForSecondClick = true;
-    }
-  }
-
-  // Window expired with no second click -> resolve as a single click
-  if (btn.waitingForSecondClick && (millis() - btn.lastReleaseTime) > BTN_DOUBLE_CLICK_WINDOW_MS) {
-    btn.waitingForSecondClick = false;
-    result = 1;
-  }
-
-  return result;
-}
-
-// Center button only needs a plain debounced press edge (play/pause toggle,
-// no double-click ambiguity) - separate from the crash-dismiss check below,
-// which uses the raw level read further down so it keeps working exactly
-// as before while a crash alarm is active.
-struct SimpleButton {
-  bool lastReading = HIGH;
-  unsigned long lastChangeTime = 0;
-};
-SimpleButton btnCenterEdge;
-
-bool pollPressEdge(SimpleButton &btn, int pin) {
-  bool reading = digitalRead(pin);
-  bool pressed = false;
-  if (reading != btn.lastReading && (millis() - btn.lastChangeTime) > BTN_DEBOUNCE_MS) {
-    btn.lastChangeTime = millis();
-    btn.lastReading = reading;
-    if (reading == LOW) pressed = true;
-  }
-  return pressed;
-}
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -172,7 +132,7 @@ void setup() {
   delay(500);
 
   Serial.println(F("\n=============================================="));
-  Serial.println(F("  TWO-WHEELER BLACKBOX - HIGH-TILT & BUTTONS  "));
+  Serial.println(F("  ACCIDIOX TWO-WHEELER BLACKBOX - CRASH SENSOR  "));
   Serial.println(F("  Accident Threshold: > 85.0 Degrees Lean      "));
   Serial.println(F("=============================================="));
 
@@ -182,12 +142,7 @@ void setup() {
   digitalWrite(PIN_BUZZER, LOW);
   digitalWrite(PIN_HAZARD_LED, LOW);
 
-  // 2. Initialize Remote Buttons with Internal Pull-Ups
-  pinMode(PIN_BTN_UP, INPUT_PULLUP);
-  pinMode(PIN_BTN_CENTER, INPUT_PULLUP);
-  pinMode(PIN_BTN_DOWN, INPUT_PULLUP);
-
-  // 3. Startup Confirmation Beep (2 quick beeps)
+  // 2. Startup Confirmation Beep (2 quick beeps)
   digitalWrite(PIN_BUZZER, HIGH); digitalWrite(PIN_HAZARD_LED, HIGH);
   delay(120);
   digitalWrite(PIN_BUZZER, LOW); digitalWrite(PIN_HAZARD_LED, LOW);
@@ -196,7 +151,7 @@ void setup() {
   delay(120);
   digitalWrite(PIN_BUZZER, LOW); digitalWrite(PIN_HAZARD_LED, LOW);
 
-  // 4. Initialize I2C Bus (ESP32: SDA=21, SCL=22)
+  // 3. Initialize I2C Bus (ESP32: SDA=21, SCL=22)
   Wire.begin(21, 22);
   Wire.setClock(100000);
 
@@ -230,14 +185,7 @@ void setup() {
     Serial.println(F("[ERROR] MPU-6050 NOT DETECTED! Check SDA=GPIO21, SCL=GPIO22."));
   }
 
-  // 4.5 Initialize Classic Bluetooth Media Remote (AVRCP). Must be started
-  // BEFORE BLEDevice::init() below, with dual mode set first, or the two
-  // Bluetooth stacks won't coexist correctly on the same radio.
-  a2dp_sink.set_default_bt_mode(ESP_BT_MODE_BTDM);
-  a2dp_sink.start("Accidiox Remote");
-  Serial.println(F("[MEDIA] Classic BT Remote Ready. Pair \"Accidiox Remote\" in your phone's Bluetooth Settings (separately from the app)."));
-
-  // 5. Initialize BLE Telemetry Server
+  // 4. Initialize BLE Telemetry Server
   BLEDevice::init("Bike-Blackbox-ESP32");
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
@@ -258,17 +206,20 @@ void setup() {
   pAdvertising->setMinPreferred(0x12);
   BLEDevice::startAdvertising();
 
-  Serial.println(F("[SYSTEM] Blackbox Armed. Threshold >85 deg. Button Test Ready.\n"));
+  Serial.println(F("[SYSTEM] Blackbox Armed. Threshold >85 deg.\n"));
 }
 
 void loop() {
-  float totalTilt = 0.0;
   float cur_ax = 0.0, cur_ay = 0.0, cur_az = 0.0;
 
   if (mpuFound) {
     if (readAccel(cur_ax, cur_ay, cur_az)) {
       float cur_norm = sqrt(cur_ax*cur_ax + cur_ay*cur_ay + cur_az*cur_az);
-      if (cur_norm > 0.1) {
+
+      // Only trust this sample for tilt if it's close to pure 1g gravity.
+      // A tap/vibration/bump sample reads far from 1g and is ignored here -
+      // totalTilt simply retains whatever it was on the last trusted sample.
+      if (cur_norm > ACCEL_MAG_MIN_G && cur_norm < ACCEL_MAG_MAX_G) {
         float u_ax = cur_ax / cur_norm;
         float u_ay = cur_ay / cur_norm;
         float u_az = cur_az / cur_norm;
@@ -292,91 +243,42 @@ void loop() {
     }
   }
 
-  // ---------------- Crash Detection Logic ----------------
-  // Trigger ONLY when tilt exceeds 85 degrees (extreme crash / flat on ground)
+  // ---------------- Crash Detection Logic (sustained-hold confirmed) ----------------
+  // Trigger ONLY when tilt exceeds 85 degrees AND stays there continuously
+  // (with a small noise-dip grace allowance) for CRASH_CONFIRM_MS - this is
+  // what actually rejects momentary bumps, speed breakers, and hard-braking
+  // deceleration from ever reaching the alarm, while still confirming a
+  // real fall within the requested 5-10 second window.
   if (totalTilt >= CRASH_TILT_LIMIT) {
-    isCrashActive = true;
-  } else if (totalTilt < RECOVERY_LIMIT) {
-    // Auto disarm when upright (< 55 degrees)
-    isCrashActive = false;
-  }
-
-  // ---------------- Button State Reading & Testing ----------------
-  bool btnUpPressed     = (digitalRead(PIN_BTN_UP) == LOW);
-  bool btnCenterPressed = (digitalRead(PIN_BTN_CENTER) == LOW);
-  bool btnDownPressed   = (digitalRead(PIN_BTN_DOWN) == LOW);
-  bool anyButtonPressed = (btnUpPressed || btnCenterPressed || btnDownPressed);
-
-  // Determine status payload to send over BLE
-  String statusPayload = NORMAL;
-
-  if (isCrashActive) {
-    statusPayload = CRASH;
-    // Center button dismisses active crash alarm
-    if (btnCenterPressed) {
-      isCrashActive = false;
-      statusPayload = CANCEL_SAFE;
-      Serial.println(F("[BUTTON 2] Crash Alarm Dismissed by Rider!"));
+    lastAboveThresholdTime = millis();
+    if (!crashCandidateActive) {
+      crashCandidateActive = true;
+      crashCandidateStartTime = millis();
+    } else if (millis() - crashCandidateStartTime >= CRASH_CONFIRM_MS) {
+      isCrashActive = true;
     }
   } else {
-    // Button testing status and serial logging
-    if (btnUpPressed) {
-      statusPayload = BTN_UP;
-      Serial.println(F("[BUTTON 1 - GPIO 32] PRESSED (Vol+ / Next Track)"));
-    } else if (btnCenterPressed) {
-      statusPayload = BTN_CENTER;
-      Serial.println(F("[BUTTON 2 - GPIO 33] PRESSED (Play/Pause)"));
-    } else if (btnDownPressed) {
-      statusPayload = BTN_DOWN;
-      Serial.println(F("[BUTTON 3 - GPIO 25] PRESSED (Vol- / Prev Track)"));
+    // Only cancel the in-progress candidate once it's been below threshold
+    // continuously for longer than the grace period - a single noisy
+    // sample shouldn't throw away several seconds of genuine hold.
+    if (crashCandidateActive && (millis() - lastAboveThresholdTime > CRASH_DIP_GRACE_MS)) {
+      crashCandidateActive = false;
+    }
+    if (totalTilt < RECOVERY_LIMIT) {
+      // Auto disarm when upright (< 55 degrees)
+      isCrashActive = false;
     }
   }
 
-  // ---------------- Media Remote Button Actions ----------------
-  // Independent of the BLE test-payload above so the on-screen button-flash
-  // in the app keeps working exactly as before. Suppressed during an active
-  // crash so the center button's crash-dismiss above takes priority.
-  if (!isCrashActive) {
-    int upClick = pollClickButton(btnUpClick, PIN_BTN_UP);
-    if (upClick == 1) {
-      a2dp_sink.volume_up();
-      Serial.println(F("[MEDIA] Volume Up"));
-    } else if (upClick == 2) {
-      a2dp_sink.next();
-      Serial.println(F("[MEDIA] Next Track"));
-    }
+  // Status payload to send over BLE - just NORMAL or CRASH now. Alarm
+  // cancellation is handled entirely by the app's "I Am Safe" button.
+  String statusPayload = isCrashActive ? CRASH : NORMAL;
 
-    int downClick = pollClickButton(btnDownClick, PIN_BTN_DOWN);
-    if (downClick == 1) {
-      a2dp_sink.volume_down();
-      Serial.println(F("[MEDIA] Volume Down"));
-    } else if (downClick == 2) {
-      a2dp_sink.previous();
-      Serial.println(F("[MEDIA] Previous Track"));
-    }
-
-    if (pollPressEdge(btnCenterEdge, PIN_BTN_CENTER)) {
-      if (mediaIsPlaying) {
-        a2dp_sink.pause();
-        mediaIsPlaying = false;
-        Serial.println(F("[MEDIA] Pause"));
-      } else {
-        a2dp_sink.play();
-        mediaIsPlaying = true;
-        Serial.println(F("[MEDIA] Play"));
-      }
-    }
-  }
-
-  // ---------------- Safety Alarm & Button LED Control ----------------
+  // ---------------- Safety Alarm Control ----------------
   if (isCrashActive) {
     // Crash alarm: Fast strobe flashing + Continuous Buzzer
     digitalWrite(PIN_HAZARD_LED, (millis() % 200 < 100) ? HIGH : LOW);
     digitalWrite(PIN_BUZZER, HIGH);
-  } else if (anyButtonPressed) {
-    // BUTTON TEST MODE: When ANY button is pressed, LED turns solid HIGH!
-    digitalWrite(PIN_HAZARD_LED, HIGH);
-    digitalWrite(PIN_BUZZER, LOW);
   } else {
     // Normal resting state: Both LED and Buzzer OFF
     digitalWrite(PIN_HAZARD_LED, LOW);
@@ -387,11 +289,7 @@ void loop() {
   if (millis() - lastSerialPrint >= 300) {
     lastSerialPrint = millis();
     Serial.print(F("Tilt: ")); Serial.print(totalTilt, 1);
-    Serial.print(F(" deg | Status: ")); Serial.print(statusPayload);
-    Serial.print(F(" | [Btn1(32): ")); Serial.print(btnUpPressed ? ON : OFF);
-    Serial.print(F(" Btn2(33): ")); Serial.print(btnCenterPressed ? ON : OFF);
-    Serial.print(F(" Btn3(25): ")); Serial.print(btnDownPressed ? ON : OFF);
-    Serial.println(F("]"));
+    Serial.print(F(" deg | Status: ")); Serial.println(statusPayload);
   }
 
   // ---------------- BLE Telemetry Broadcast (Every 100ms) ----------------

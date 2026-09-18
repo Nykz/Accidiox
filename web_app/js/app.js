@@ -78,10 +78,6 @@ const elAddContactForm   = document.getElementById("addContactForm");
 const elContactNameInput = document.getElementById("contactNameInput");
 const elContactPhoneInput = document.getElementById("contactPhoneInput");
 
-const elUiBtn1           = document.getElementById("uiBtn1");
-const elUiBtn2           = document.getElementById("uiBtn2");
-const elUiBtn3           = document.getElementById("uiBtn3");
-
 document.addEventListener("DOMContentLoaded", () => {
   elBtnConnectMain.addEventListener("click", () => bleManager.connect());
   elBtnDisconnect.addEventListener("click", () => {
@@ -110,11 +106,6 @@ document.addEventListener("DOMContentLoaded", () => {
       addContact();
     });
   }
-
-  // Interactive buttons on screen
-  if (elUiBtn1) elUiBtn1.addEventListener("click", () => flashBtnUi(elUiBtn1));
-  if (elUiBtn2) elUiBtn2.addEventListener("click", () => { flashBtnUi(elUiBtn2); if (appState.isEmergencyActive) cancelEmergency(); });
-  if (elUiBtn3) elUiBtn3.addEventListener("click", () => { flashBtnUi(elUiBtn3); triggerEmergencyRoutine({ tilt: 60, roll: 55, pitch: 10 }); });
 
   const elBtnRecenterMap = document.getElementById("btnRecenterMap");
   if (elBtnRecenterMap) elBtnRecenterMap.addEventListener("click", () => recenterLiveMap());
@@ -779,28 +770,17 @@ function handleTelemetry(data) {
   if (elRollValue) elRollValue.textContent = `${data.roll}°`;
   if (elPitchValue) elPitchValue.textContent = `${data.pitch}°`;
 
-  // Check for Crash or Manual SOS Trigger
-  if (cmd === "CRASH" || cmd === "MANUAL_SOS" || data.tilt >= 85.0) {
+  // Trust the firmware's own confirmed decision only (cmd === "CRASH"),
+  // which already required a sustained, vibration-filtered hold before
+  // ever being sent. Independently re-checking the raw tilt number here
+  // (e.g. "data.tilt >= 85.0") used to bypass that entire safeguard and
+  // fire the alert on a single noisy/transient packet - removed.
+  if (cmd === "CRASH" || cmd === "MANUAL_SOS") {
     if (!appState.isEmergencyActive) {
       setSafetyStatus(true);
       if (elHeroHelperText) elHeroHelperText.textContent = "Confirm you're safe, or help is on the way.";
       triggerEmergencyRoutine(data);
     }
-  }
-  else if (cmd === "CANCEL_SAFE") {
-    flashBtnUi(elUiBtn2);
-    if (appState.isEmergencyActive) {
-      cancelEmergency();
-    }
-  }
-  else if (cmd === "BTN_UP") {
-    flashBtnUi(elUiBtn1);
-  }
-  else if (cmd === "BTN_CENTER") {
-    flashBtnUi(elUiBtn2);
-  }
-  else if (cmd === "BTN_DOWN") {
-    flashBtnUi(elUiBtn3);
   }
   else {
     // Only reset title if emergency is not active
@@ -809,12 +789,6 @@ function handleTelemetry(data) {
       if (elHeroHelperText) elHeroHelperText.textContent = "Everything looks normal. No action needed.";
     }
   }
-}
-
-function flashBtnUi(btnEl) {
-  if (!btnEl) return;
-  btnEl.classList.add("active-press");
-  setTimeout(() => btnEl.classList.remove("active-press"), 300);
 }
 
 // 3. BLE State Handler

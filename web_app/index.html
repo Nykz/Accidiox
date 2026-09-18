@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="css/style.css?v=21" />
+  <link rel="stylesheet" href="css/style.css?v=22" />
 </head>
 <body>
 
@@ -162,31 +162,6 @@
     <!-- Settings View: technical details + configuration, kept off the main screen -->
     <main class="container" id="settingsView" style="display: none;">
 
-      <!-- Handlebar 3-Button Controller Widget -->
-      <section class="card">
-        <div class="remote-header">
-          <h3><svg class="icon section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="20" rx="2.2"/><circle cx="12" cy="6" r="0.9" fill="currentColor" stroke="none"/><line x1="10" y1="10.3" x2="14" y2="10.3"/><line x1="10" y1="14" x2="14" y2="14"/></svg>Handlebar Remote Control</h3>
-          <span class="chip chip-blue-soft">Hardware Synced</span>
-        </div>
-        <div class="remote-grid">
-          <div class="remote-btn" id="uiBtn1">
-            <svg class="icon remote-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.4l4.6 3.5v-12L7.4 9.5H4z" fill="currentColor" stroke="none"/><path d="M16.2 8.5a5.2 5.2 0 0 1 0 7"/><path d="M19 6a9 9 0 0 1 0 12"/></svg>
-            <span class="remote-btn-title">BTN 1</span>
-            <span class="remote-btn-sub">Vol + / Next</span>
-          </div>
-          <div class="remote-btn remote-btn-success" id="uiBtn2">
-            <svg class="icon remote-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 4.2v15.6l13-7.8-13-7.8z" fill="currentColor" stroke="none"/></svg>
-            <span class="remote-btn-title">BTN 2</span>
-            <span class="remote-btn-sub">Play / Cancel</span>
-          </div>
-          <div class="remote-btn remote-btn-danger" id="uiBtn3">
-            <svg class="icon remote-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.4l4.6 3.5v-12L7.4 9.5H4z" fill="currentColor" stroke="none"/><path d="M17 9.8a4 4 0 0 1 0 4.9"/></svg>
-            <span class="remote-btn-title">BTN 3</span>
-            <span class="remote-btn-sub">Vol - / 3s SOS</span>
-          </div>
-        </div>
-      </section>
-
       <!-- Subsystem Diagnostics Checklist -->
       <section class="card">
         <div class="diag-header">
@@ -217,7 +192,7 @@
           </div>
           <div class="diag-item">
             <span class="diag-name"><svg class="icon diag-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2L22 20H2L12 3.2z"/><line x1="12" y1="9.5" x2="12" y2="14"/><circle cx="12" cy="16.8" r="0.9" fill="currentColor" stroke="none"/></svg>Crash Trigger Angle</span>
-            <span class="diag-value">55.0&deg;</span>
+            <span class="diag-value">85.0&deg;</span>
           </div>
         </div>
       </section>
@@ -383,7 +358,7 @@
   <script type="module" src="js/bike3d.js?v=20"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/bluetooth.js?v=20"></script>
-  <script src="js/app.js?v=21"></script>
+  <script src="js/app.js?v=22"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

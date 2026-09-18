@@ -839,7 +839,6 @@ body {
 }
 
 /* ============== Section headings shared ============== */
-.remote-header,
 .diag-header {
   display: flex;
   flex-wrap: wrap;
@@ -849,7 +848,6 @@ body {
   margin-bottom: 14px;
 }
 
-.remote-header h3,
 .diag-header h3 {
   font-size: 13px;
   font-weight: 800;
@@ -868,20 +866,6 @@ body {
   height: 19px !important;
 }
 
-.chip {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 5px 10px;
-  border-radius: var(--radius-full);
-  white-space: nowrap;
-}
-
-.chip-blue-soft {
-  background-color: var(--primary-tint);
-  color: var(--primary);
-  border: 1px solid var(--primary-tint-strong);
-}
-
 .link-arrow {
   font-size: 12px;
   color: var(--primary);
@@ -895,82 +879,6 @@ body {
 .link-arrow .icon {
   width: 16px;
   height: 16px;
-}
-
-/* ============== Handlebar Remote Control Module ============== */
-.remote-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.remote-btn {
-  background-color: var(--bg-card-alt);
-  border: 1.5px solid var(--outline);
-  border-radius: var(--radius-md);
-  padding: 16px 8px 12px;
-  text-align: center;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.15s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-sub);
-}
-
-.remote-btn-icon {
-  width: 22px !important;
-  height: 22px !important;
-  color: var(--text-sub);
-  margin-bottom: 2px;
-}
-
-.remote-btn-success {
-  border-color: rgba(22, 163, 74, 0.28);
-  background-color: var(--success-tint);
-}
-
-.remote-btn-success .remote-btn-icon,
-.remote-btn-success .remote-btn-title {
-  color: var(--success);
-}
-
-.remote-btn-danger {
-  border-color: rgba(220, 38, 38, 0.28);
-  background-color: var(--danger-tint);
-}
-
-.remote-btn-danger .remote-btn-icon,
-.remote-btn-danger .remote-btn-title {
-  color: var(--danger);
-}
-
-.remote-btn:active,
-.remote-btn.active-press {
-  background-color: var(--primary-tint);
-  border-color: var(--primary);
-  transform: scale(0.96);
-}
-
-.remote-btn.active-press .remote-btn-icon,
-.remote-btn.active-press .remote-btn-title {
-  color: var(--primary);
-}
-
-.remote-btn-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--text-main);
-  display: block;
-}
-
-.remote-btn-sub {
-  font-size: 10px;
-  color: var(--text-sub);
-  font-weight: 600;
-  display: block;
 }
 
 /* ============== Subsystem Diagnostics ============== */
