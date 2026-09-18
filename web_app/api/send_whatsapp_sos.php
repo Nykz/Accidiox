@@ -86,7 +86,13 @@ function send_one_whatsapp($phoneNumberId, $accessToken, $templateName, $templat
         $msgId = isset($decoded['messages'][0]['id']) ? $decoded['messages'][0]['id'] : null;
         return ["ok" => true, "id" => $msgId];
     }
-    $errMsg = isset($decoded['error']['message']) ? $decoded['error']['message'] : "HTTP $httpCode";
+    // Surface the full Meta error object (code/subcode/type), not just the
+    // message, so failures can actually be diagnosed instead of guessed at.
+    $err = isset($decoded['error']) ? $decoded['error'] : ["message" => "HTTP $httpCode"];
+    $errMsg = (isset($err['message']) ? $err['message'] : "HTTP $httpCode")
+        . (isset($err['error_subcode']) ? " (subcode {$err['error_subcode']})" : "")
+        . (isset($err['code']) ? " [code {$err['code']}]" : "")
+        . (isset($err['error_data']['details']) ? " - " . $err['error_data']['details'] : "");
     return ["ok" => false, "error" => $errMsg];
 }
 
