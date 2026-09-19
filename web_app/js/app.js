@@ -1035,6 +1035,8 @@ async function dispatchWhatsAppToContacts(message, templateParams) {
   if (!appState.contacts || appState.contacts.length === 0) return;
 
   let autoResults = [];
+  let apiErrorMessage = null;
+
   try {
     const res = await fetch("api/send_whatsapp_sos.php", {
       method: "POST",
@@ -1044,34 +1046,67 @@ async function dispatchWhatsAppToContacts(message, templateParams) {
     const data = await res.json();
     if (data.status === "done" && Array.isArray(data.results)) {
       autoResults = data.results;
+    } else if (data.status === "not_configured" || data.status === "error") {
+      apiErrorMessage = data.message || "Meta API configuration missing or error";
     }
   } catch (err) {
     console.warn("[WhatsApp SOS] Backend API request failed:", err);
+    apiErrorMessage = "Could not connect to backend server";
   }
 
-  showSosSentConfirmation(autoResults);
+  showSosSentConfirmation(autoResults, message, apiErrorMessage);
 }
 
-function showSosSentConfirmation(results) {
+function showSosSentConfirmation(results, message, globalError) {
   if (!elSosSentModal || !elSosSentContactsList) return;
 
   elSosSentContactsList.innerHTML = "";
+  const encoded = encodeURIComponent(message || "");
+
+  const elSummary = document.getElementById("sosSentSummary");
+  const anySuccess = (results || []).some(r => r.sent === true);
+
+  if (elSummary) {
+    if (anySuccess) {
+      elSummary.textContent = "Emergency alert was automatically delivered to your emergency contacts via WhatsApp Cloud API.";
+    } else if (globalError) {
+      elSummary.textContent = `WhatsApp Cloud API Note: ${globalError}`;
+    } else {
+      elSummary.textContent = "Emergency SOS dispatch completed. If Meta Cloud API delivery fails due to test-mode limits, you can tap 'Send via WhatsApp' below.";
+    }
+  }
 
   appState.contacts.forEach((contact) => {
-    const res = (results || []).find(r => r.phone === contact.phone) || {};
+    const res = (results || []).find(r => r.phone === contact.phone || r.phone === `91${contact.phone}`) || {};
     const isSent = res.sent === true;
+    const detail = res.detail || (globalError ? globalError : "Meta Sandbox Mode / Delivery Failed");
+    const waUrl = `https://api.whatsapp.com/send?phone=${contact.phone}&text=${encoded}`;
+
     const item = document.createElement("div");
     item.className = "sos-sent-item";
     
     item.innerHTML = `
-      <div class="sos-sent-contact-info">
-        <span class="sos-sent-name">${contact.name}</span>
-        <span class="sos-sent-phone">+${contact.phone}</span>
+      <div class="sos-sent-row-header">
+        <div class="sos-sent-contact-info">
+          <span class="sos-sent-name">${contact.name}</span>
+          <span class="sos-sent-phone">+${contact.phone}</span>
+        </div>
+        <span class="sos-status-tag ${isSent ? 'sent' : 'failed'}">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;">
+            ${isSent ? '<polyline points="20 6 9 17 4 12"/>' : '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'}
+          </svg>
+          ${isSent ? 'Delivered (API)' : 'API Delivery Issue'}
+        </span>
       </div>
-      <span class="sos-status-tag ${isSent ? 'sent' : 'sent'}">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><polyline points="20 6 9 17 4 12"/></svg>
-        ${isSent ? 'Delivered' : 'Dispatched'}
-      </span>
+      ${!isSent ? `
+        <div class="sos-error-detail">
+          <strong>Reason:</strong> ${detail}
+        </div>
+        <a href="${waUrl}" target="_blank" class="btn-manual-whatsapp">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span>Send via WhatsApp App (1-Tap)</span>
+        </a>
+      ` : ''}
     `;
     elSosSentContactsList.appendChild(item);
   });

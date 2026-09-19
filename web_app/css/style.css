@@ -1649,8 +1649,63 @@ body {
   color: var(--success);
 }
 
+.sos-status-tag.failed {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
 .sos-status-tag.pending {
   background: var(--warning-tint);
   color: #b45309;
 }
+
+.sos-sent-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+}
+
+.sos-sent-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.sos-error-detail {
+  font-size: 10.5px;
+  color: var(--danger);
+  line-height: 1.35;
+  background: var(--danger-tint);
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  word-break: break-word;
+}
+
+.btn-manual-whatsapp {
+  background: #25d366;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-full);
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.btn-manual-whatsapp:hover {
+  background: #1ebc57;
+}
+
 
