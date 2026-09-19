@@ -1579,3 +1579,78 @@ body {
   text-decoration: none;
   font-weight: 600;
 }
+
+/* SOS Dispatched Confirmation Modal */
+.modal-icon.sos-sent-icon {
+  background-color: var(--success-tint);
+  color: var(--success);
+}
+
+.modal-badge.sos-sent-badge {
+  background-color: var(--success-tint);
+  color: var(--success);
+}
+
+.sos-sent-contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0 16px;
+  text-align: left;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.sos-sent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background-color: var(--surface-2);
+  border: 1px solid var(--outline-variant);
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+}
+
+.sos-sent-contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sos-sent-name {
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sos-sent-phone {
+  font-size: 11px;
+  color: var(--text-sub);
+  font-family: 'Roboto Mono', monospace;
+}
+
+.sos-status-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.sos-status-tag.sent {
+  background: var(--success-tint);
+  color: var(--success);
+}
+
+.sos-status-tag.pending {
+  background: var(--warning-tint);
+  color: #b45309;
+}
+

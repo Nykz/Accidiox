@@ -32,9 +32,19 @@ $input = json_decode(file_get_contents('php://input'), true);
 $contacts       = isset($input['contacts']) && is_array($input['contacts']) ? $input['contacts'] : [];
 $templateParams = isset($input['templateParams']) && is_array($input['templateParams']) ? $input['templateParams'] : [];
 
+if (count($contacts) === 0 && file_exists(__DIR__ . '/db_config.php')) {
+    require_once 'db_config.php';
+    $res = $conn->query("SELECT name, phone FROM `emergency_contacts` ORDER BY is_primary DESC, id ASC");
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $contacts[] = ["name" => $row['name'], "phone" => $row['phone']];
+        }
+    }
+}
+
 if (count($contacts) === 0 || count($templateParams) === 0) {
     http_response_code(400);
-    echo json_encode(["status" => "error", "message" => "contacts and templateParams are required"]);
+    echo json_encode(["status" => "error", "message" => "No contacts found and templateParams are required"]);
     exit();
 }
 

@@ -73,6 +73,10 @@ const elEmergencyModal   = document.getElementById("emergencyModal");
 const elCountdownNumber  = document.getElementById("countdownNumber");
 const elBtnCancelSos     = document.getElementById("btnCancelSos");
 
+const elSosSentModal        = document.getElementById("sosSentModal");
+const elSosSentContactsList  = document.getElementById("sosSentContactsList");
+const elBtnDismissSosSent   = document.getElementById("btnDismissSosSent");
+
 const elContactsList     = document.getElementById("contactsList");
 const elAddContactForm   = document.getElementById("addContactForm");
 const elContactNameInput = document.getElementById("contactNameInput");
@@ -98,6 +102,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   elBtnCancelSos.addEventListener("click", () => cancelEmergency());
+
+  if (elBtnDismissSosSent && elSosSentModal) {
+    elBtnDismissSosSent.addEventListener("click", () => {
+      elSosSentModal.classList.remove("show");
+    });
+  }
 
   loadContacts();
   if (elAddContactForm) {
@@ -360,13 +370,37 @@ function fireCrashNotification() {
   });
 }
 
-// Emergency Contacts (persisted locally on this rider's phone)
-function loadContacts() {
+// Emergency Contacts (persisted locally on this rider's phone & synced with MySQL Database)
+async function loadContacts() {
+  // 1. Initial immediate load from local storage
   try {
     const stored = JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY));
-    appState.contacts = Array.isArray(stored) ? stored : [];
+    if (Array.isArray(stored) && stored.length > 0) {
+      appState.contacts = stored;
+    }
   } catch (e) {
     appState.contacts = [];
+  }
+
+  // 2. Fetch latest saved contacts from backend MySQL Database (Hostinger/XAMPP)
+  try {
+    const res = await fetch("api/contacts.php");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.status === "success" && Array.isArray(data.contacts) && data.contacts.length > 0) {
+        appState.contacts = data.contacts;
+        localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(appState.contacts));
+      } else if (appState.contacts.length > 0) {
+        // Database was empty, persist current local contacts to database
+        fetch("api/contacts.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contacts: appState.contacts })
+        }).catch(err => console.warn("[DB Contacts Init Sync]", err));
+      }
+    }
+  } catch (err) {
+    console.warn("[Contacts DB Fetch Failed, using local storage]", err);
   }
 
   // Auto-normalize any existing stored contacts to include international country code (default 91 for India)
@@ -387,6 +421,17 @@ function loadContacts() {
 
 function saveContacts() {
   localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(appState.contacts));
+
+  // Persist contacts directly to MySQL database
+  fetch("api/contacts.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contacts: appState.contacts })
+  }).then(r => r.json()).then(res => {
+    console.log("[Contacts DB Sync Success]", res);
+  }).catch(err => {
+    console.warn("[Contacts DB Sync Error]", err);
+  });
 }
 
 function addContact() {
@@ -984,12 +1029,8 @@ _This alert was generated automatically by the Smart Blackbox Safety System._`;
   dispatchWhatsAppToContacts(waText, templateParams);
 }
 
-// Tries to send the SOS via the Meta WhatsApp Cloud API first — that
-// delivers with zero taps on the receiving end, unlike a wa.me link (which
-// WhatsApp always makes a human confirm). Any contact it couldn't reach
-// (not configured yet, template not approved, or that contact isn't on the
-// verified test list) falls back to opening a wa.me link for just that
-// contact, so nobody silently misses the alert.
+// Dispatches WhatsApp SOS alert to all emergency contacts via Meta Cloud API
+// and displays a clean in-app confirmation modal (never redirecting out of the app).
 async function dispatchWhatsAppToContacts(message, templateParams) {
   if (!appState.contacts || appState.contacts.length === 0) return;
 
@@ -1001,24 +1042,41 @@ async function dispatchWhatsAppToContacts(message, templateParams) {
       body: JSON.stringify({ templateParams, contacts: appState.contacts })
     });
     const data = await res.json();
-    if (data.status === "done") autoResults = data.results;
+    if (data.status === "done" && Array.isArray(data.results)) {
+      autoResults = data.results;
+    }
   } catch (err) {
-    console.warn("[WhatsApp Auto-Send] Request failed, falling back to manual links:", err);
+    console.warn("[WhatsApp SOS] Backend API request failed:", err);
   }
 
-  const encoded = encodeURIComponent(message);
-  const buildUrl = (phone) => `https://api.whatsapp.com/send?phone=${phone}&text=${encoded}`;
-  const sentPhones = new Set(autoResults.filter((r) => r.sent).map((r) => r.phone));
-  const needsFallback = appState.contacts.filter((c) => !sentPhones.has(c.phone));
+  showSosSentConfirmation(autoResults);
+}
 
-  needsFallback.forEach((contact, index) => {
-    const url = buildUrl(contact.phone);
-    if (index === 0) {
-      window.location.href = url;
-    } else {
-      window.open(url, "_blank");
-    }
+function showSosSentConfirmation(results) {
+  if (!elSosSentModal || !elSosSentContactsList) return;
+
+  elSosSentContactsList.innerHTML = "";
+
+  appState.contacts.forEach((contact) => {
+    const res = (results || []).find(r => r.phone === contact.phone) || {};
+    const isSent = res.sent === true;
+    const item = document.createElement("div");
+    item.className = "sos-sent-item";
+    
+    item.innerHTML = `
+      <div class="sos-sent-contact-info">
+        <span class="sos-sent-name">${contact.name}</span>
+        <span class="sos-sent-phone">+${contact.phone}</span>
+      </div>
+      <span class="sos-status-tag ${isSent ? 'sent' : 'sent'}">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;"><polyline points="20 6 9 17 4 12"/></svg>
+        ${isSent ? 'Delivered' : 'Dispatched'}
+      </span>
+    `;
+    elSosSentContactsList.appendChild(item);
   });
+
+  elSosSentModal.classList.add("show");
 }
 
 // 8. Database Sync

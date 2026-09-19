@@ -41,3 +41,14 @@ CREATE TABLE IF NOT EXISTS `live_status` (
 
 INSERT INTO `live_status` (`id`) VALUES (1)
 ON DUPLICATE KEY UPDATE `id` = `id`;
+
+-- Table for storing emergency contacts synced from rider app
+CREATE TABLE IF NOT EXISTS `emergency_contacts` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(100) NOT NULL,
+    `phone` VARCHAR(20) NOT NULL,
+    `is_primary` TINYINT(1) DEFAULT 0,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
