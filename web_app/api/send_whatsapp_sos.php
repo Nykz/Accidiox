@@ -41,9 +41,14 @@ if (count($contacts) === 0 || count($templateParams) === 0) {
 function send_one_whatsapp($phoneNumberId, $accessToken, $templateName, $templateLang, $toPhone, $params) {
     $url = "https://graph.facebook.com/v20.0/{$phoneNumberId}/messages";
 
-    // Meta wants digits-only with no "+"; contacts are already stored as
-    // "919876543210" style (country code + number, no plus/spaces).
+    // Meta wants digits-only with country code and no "+".
+    // If a 10-digit mobile number is entered, automatically prepend "91" (India country code).
     $digits = preg_replace('/[^0-9]/', '', $toPhone);
+    if (strlen($digits) === 10) {
+        $digits = "91" . $digits;
+    } elseif (strlen($digits) === 11 && substr($digits, 0, 1) === "0") {
+        $digits = "91" . substr($digits, 1);
+    }
 
     $parameters = array_map(function ($text) {
         return ["type" => "text", "text" => (string) $text];

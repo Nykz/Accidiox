@@ -369,6 +369,14 @@ function loadContacts() {
     appState.contacts = [];
   }
 
+  // Auto-normalize any existing stored contacts to include international country code (default 91 for India)
+  appState.contacts = appState.contacts.map(c => {
+    let p = String(c.phone || "").replace(/[^0-9]/g, "");
+    if (p.length === 10) p = "91" + p;
+    else if (p.length === 11 && p.startsWith("0")) p = "91" + p.slice(1);
+    return { name: c.name || "Emergency Contact", phone: p };
+  });
+
   if (appState.contacts.length === 0) {
     appState.contacts = [{ name: "Primary Contact", phone: "919876543210" }];
     saveContacts();
@@ -383,7 +391,14 @@ function saveContacts() {
 
 function addContact() {
   const name = elContactNameInput.value.trim() || "Emergency Contact";
-  const phone = elContactPhoneInput.value.replace(/[^0-9]/g, "");
+  let phone = elContactPhoneInput.value.replace(/[^0-9]/g, "");
+
+  // Auto-prefix Indian country code '91' if 10-digit mobile number is entered
+  if (phone.length === 10) {
+    phone = "91" + phone;
+  } else if (phone.length === 11 && phone.startsWith("0")) {
+    phone = "91" + phone.slice(1);
+  }
 
   if (phone.length < 10) {
     elContactPhoneInput.focus();
@@ -398,6 +413,7 @@ function addContact() {
   elContactPhoneInput.value = "";
   elContactNameInput.focus();
 }
+
 
 function removeContact(index) {
   appState.contacts.splice(index, 1);
