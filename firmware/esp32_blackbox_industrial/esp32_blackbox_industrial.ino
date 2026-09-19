@@ -276,9 +276,11 @@ void loop() {
 
   // ---------------- Safety Alarm Control ----------------
   if (isCrashActive) {
-    // Crash alarm: Fast strobe flashing + Continuous Buzzer
-    digitalWrite(PIN_HAZARD_LED, (millis() % 200 < 100) ? HIGH : LOW);
-    digitalWrite(PIN_BUZZER, HIGH);
+    // Pulsed Crash Alarm: 350ms warning beep every 2 seconds (2000ms cycle)
+    // with 1650ms pause, replacing the continuous buzzer.
+    bool isBeepActive = (millis() % 2000 < 350);
+    digitalWrite(PIN_HAZARD_LED, isBeepActive ? HIGH : LOW);
+    digitalWrite(PIN_BUZZER, isBeepActive ? HIGH : LOW);
   } else {
     // Normal resting state: Both LED and Buzzer OFF
     digitalWrite(PIN_HAZARD_LED, LOW);

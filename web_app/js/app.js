@@ -1180,9 +1180,9 @@ function startSirenAudio() {
       osc.connect(gain);
       gain.connect(appState.audioContext.destination);
       osc.start();
-      osc.stop(appState.audioContext.currentTime + 0.4);
+      osc.stop(appState.audioContext.currentTime + 0.35);
       isHigh = !isHigh;
-    }, 450);
+    }, 2000);
   } catch (e) {}
 }
 
