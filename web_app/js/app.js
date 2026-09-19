@@ -786,25 +786,39 @@ async function findNearestFacility(lat, lon, category) {
     }
   }
   const [closestLon, closestLat] = closest.geometry.coordinates;
-  return { name: (closest.properties && closest.properties.name) || null, distanceKm: closestDist, lat: closestLat, lon: closestLon };
+  const props = closest.properties || {};
+  const phone = (props.contact && props.contact.phone) || (props.datasource && props.datasource.raw && (props.datasource.raw.phone || props.datasource.raw["contact:phone"])) || null;
+  const address = props.formatted || props.address_line2 || null;
+
+  return {
+    name: props.name || null,
+    distanceKm: closestDist,
+    lat: closestLat,
+    lon: closestLon,
+    phone: phone,
+    address: address
+  };
 }
 
-async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, coordsKey, fallbackName, notFoundText, el) {
+async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, coordsKey, phoneKey, fallbackName, notFoundText, el) {
   try {
     const found = await findNearestFacility(lat, lon, category);
     if (found) {
       appState[stateKey] = found.name || fallbackName;
       appState[distanceKey] = found.distanceKm;
       appState[coordsKey] = { lat: found.lat, lon: found.lon };
+      if (phoneKey) appState[phoneKey] = found.phone || null;
     } else {
       appState[stateKey] = notFoundText;
       appState[distanceKey] = null;
       appState[coordsKey] = null;
+      if (phoneKey) appState[phoneKey] = null;
     }
   } catch (err) {
     appState[stateKey] = `Unable to locate ${fallbackName.toLowerCase()}`;
     appState[distanceKey] = null;
     appState[coordsKey] = null;
+    if (phoneKey) appState[phoneKey] = null;
   }
   if (el) {
     el.textContent = appState[distanceKey] != null
@@ -814,9 +828,9 @@ async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, 
 }
 
 async function fetchNearestEmergencyFacilities(lat, lon) {
-  await updateNearestFacility(lat, lon, "healthcare.hospital", "nearestHospital", "nearestHospitalDistance", "nearestHospitalCoords", "Nearby Hospital", "No hospital found nearby", elHospitalDiag);
-  await updateNearestFacility(lat, lon, "service.police", "nearestPolice", "nearestPoliceDistance", "nearestPoliceCoords", "Nearby Police Station", "No police station found nearby", elPoliceDiag);
-  await updateNearestFacility(lat, lon, "service.vehicle.fuel", "nearestPetrol", "nearestPetrolDistance", "nearestPetrolCoords", "Nearby Petrol Pump", "No petrol pump found nearby", elPetrolDiag);
+  await updateNearestFacility(lat, lon, "healthcare.hospital", "nearestHospital", "nearestHospitalDistance", "nearestHospitalCoords", "nearestHospitalPhone", "Nearby Hospital", "No hospital found nearby", elHospitalDiag);
+  await updateNearestFacility(lat, lon, "service.police", "nearestPolice", "nearestPoliceDistance", "nearestPoliceCoords", "nearestPolicePhone", "Nearby Police Station", "No police station found nearby", elPoliceDiag);
+  await updateNearestFacility(lat, lon, "service.vehicle.fuel", "nearestPetrol", "nearestPetrolDistance", "nearestPetrolCoords", "nearestPetrolPhone", "Nearby Petrol Pump", "No petrol pump found nearby", elPetrolDiag);
 }
 
 function setSafetyStatus(isCrash) {
@@ -1132,6 +1146,22 @@ function showSosSentConfirmation(results, message, globalError) {
     `;
     elSosSentContactsList.appendChild(item);
   });
+
+  const btnCallNearestHospital = document.getElementById("btnCallNearestHospital");
+  const labelCallNearestHospital = document.getElementById("labelCallNearestHospital");
+  if (btnCallNearestHospital) {
+    if (appState.nearestHospitalPhone) {
+      btnCallNearestHospital.href = `tel:${appState.nearestHospitalPhone}`;
+      if (labelCallNearestHospital) labelCallNearestHospital.textContent = `Call ${appState.nearestHospital}`;
+    } else {
+      btnCallNearestHospital.href = "tel:108";
+      if (labelCallNearestHospital) {
+        labelCallNearestHospital.textContent = (appState.nearestHospital && !appState.nearestHospital.startsWith("Locating"))
+          ? `Call 108 (For ${appState.nearestHospital})`
+          : "Call 108 Ambulance Dispatch";
+      }
+    }
+  }
 
   elSosSentModal.classList.add("show");
 }
