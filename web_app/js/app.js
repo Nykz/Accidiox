@@ -824,30 +824,52 @@ function setSafetyStatus(isCrash) {
   elClusterStatusBadge.className = "cluster-status-badge" + (isCrash ? " crash" : " safe");
 }
 
+// 10-Second Continuous Fall Confirmation Filter
+let appCrashCandidateStartTime = null;
+const APP_CRASH_CONFIRM_MS = 10000;   // 10s continuous hold required
+const APP_CRASH_TILT_LIMIT = 85.0;    // 85 degrees tilt limit
+const APP_RECOVERY_TILT_LIMIT = 55.0; // upright recovery limit
+
 // 2. BLE Telemetry Handler
 function handleTelemetry(data) {
   const cmd = data.status;
+  const currentTilt = parseFloat(data.tilt || Math.max(Math.abs(data.roll || 0), Math.abs(data.pitch || 0)));
 
   if (elRollValue) elRollValue.textContent = `${data.roll}°`;
   if (elPitchValue) elPitchValue.textContent = `${data.pitch}°`;
 
-  // Trust the firmware's own confirmed decision only (cmd === "CRASH"),
-  // which already required a sustained, vibration-filtered hold before
-  // ever being sent. Independently re-checking the raw tilt number here
-  // (e.g. "data.tilt >= 85.0") used to bypass that entire safeguard and
-  // fire the alert on a single noisy/transient packet - removed.
+  // Case 1: Firmware confirmed crash (firmware held > 85 deg for 10s continuously)
   if (cmd === "CRASH" || cmd === "MANUAL_SOS") {
     if (!appState.isEmergencyActive) {
       setSafetyStatus(true);
-      if (elHeroHelperText) elHeroHelperText.textContent = "Confirm you're safe, or help is on the way.";
+      if (elHeroHelperText) elHeroHelperText.textContent = "Accident confirmed (10s continuous fall). Dispatching SOS...";
       triggerEmergencyRoutine(data);
     }
+    return;
   }
-  else {
-    // Only reset title if emergency is not active
-    if (!appState.isEmergencyActive) {
-      setSafetyStatus(false);
-      if (elHeroHelperText) elHeroHelperText.textContent = "Everything looks normal. No action needed.";
+
+  // Case 2: App-side continuous 10-second tilt hold validation
+  if (currentTilt >= APP_CRASH_TILT_LIMIT) {
+    if (!appCrashCandidateStartTime) {
+      appCrashCandidateStartTime = Date.now();
+      if (elHeroHelperText && !appState.isEmergencyActive) {
+        elHeroHelperText.textContent = "High tilt detected. Awaiting 10s confirmation...";
+      }
+    } else if (Date.now() - appCrashCandidateStartTime >= APP_CRASH_CONFIRM_MS) {
+      if (!appState.isEmergencyActive) {
+        setSafetyStatus(true);
+        if (elHeroHelperText) elHeroHelperText.textContent = "Continuous 10s fall confirmed. Initiating emergency response.";
+        triggerEmergencyRoutine(data);
+      }
+    }
+  } else {
+    // If the bike is righted back up (< 55 deg) before 10s, reset candidate immediately — no false alarm
+    if (currentTilt < APP_RECOVERY_TILT_LIMIT) {
+      appCrashCandidateStartTime = null;
+      if (!appState.isEmergencyActive) {
+        setSafetyStatus(false);
+        if (elHeroHelperText) elHeroHelperText.textContent = "Everything looks normal. No action needed.";
+      }
     }
   }
 }

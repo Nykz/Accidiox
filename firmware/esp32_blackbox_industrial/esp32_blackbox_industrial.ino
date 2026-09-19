@@ -59,8 +59,8 @@ const float RECOVERY_LIMIT   = 55.0; // Auto-disarm when returned upright (< 55 
 //      an otherwise-genuine, in-progress confirmation back to zero.
 const float ACCEL_MAG_MIN_G = 0.7;
 const float ACCEL_MAG_MAX_G = 1.3;
-const unsigned long CRASH_CONFIRM_MS = 7000;   // 7s - within the requested 5-10s window
-const unsigned long CRASH_DIP_GRACE_MS = 500;
+const unsigned long CRASH_CONFIRM_MS = 10000;  // 10s continuous hold to confirm genuine accident/fall
+const unsigned long CRASH_DIP_GRACE_MS = 600;
 bool crashCandidateActive = false;
 unsigned long crashCandidateStartTime = 0;
 unsigned long lastAboveThresholdTime = 0;
