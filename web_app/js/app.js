@@ -412,7 +412,7 @@ async function loadContacts() {
   });
 
   if (appState.contacts.length === 0) {
-    appState.contacts = [{ name: "Primary Contact", phone: "919876543210" }];
+    appState.contacts = [{ name: "My Phone (Verification Test)", phone: "917086249545" }];
     saveContacts();
   }
 
@@ -1158,19 +1158,15 @@ function showSosSentConfirmation(results, message, globalError) {
     elSosSentContactsList.appendChild(item);
   });
 
+  const TEST_EMERGENCY_PHONE = "+917086249545";
   const btnCallNearestHospital = document.getElementById("btnCallNearestHospital");
   const labelCallNearestHospital = document.getElementById("labelCallNearestHospital");
   if (btnCallNearestHospital) {
-    if (appState.nearestHospitalPhone) {
-      btnCallNearestHospital.href = `tel:${appState.nearestHospitalPhone}`;
-      if (labelCallNearestHospital) labelCallNearestHospital.textContent = `Call ${appState.nearestHospital}`;
-    } else {
-      btnCallNearestHospital.href = "tel:108";
-      if (labelCallNearestHospital) {
-        labelCallNearestHospital.textContent = (appState.nearestHospital && !appState.nearestHospital.startsWith("Locating"))
-          ? `Call 108 (For ${appState.nearestHospital})`
-          : "Call 108 Ambulance Dispatch";
-      }
+    btnCallNearestHospital.href = `tel:${TEST_EMERGENCY_PHONE}`;
+    if (labelCallNearestHospital) {
+      labelCallNearestHospital.textContent = (appState.nearestHospital && !appState.nearestHospital.startsWith("Locating"))
+        ? `Call ${appState.nearestHospital} (${TEST_EMERGENCY_PHONE})`
+        : `Call Hospital Helpline (${TEST_EMERGENCY_PHONE})`;
     }
   }
 
