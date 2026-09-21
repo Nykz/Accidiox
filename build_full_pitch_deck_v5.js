@@ -21,11 +21,11 @@ const SLATE_500 = '64748B';
 const CARD_BORDER_LIGHT = 'E2E8F0';
 const CARD_BORDER_DARK = '1E3A4C';
 
-// --- TYPOGRAPHY (SWEET SQUARE PRO DESIGN SYSTEM) ---
-const FONT_LOGO = 'Sweet Square Pro';
-const FONT_HEAD = 'Sweet Square Pro';
-const FONT_TECH = 'Sweet Square Pro';
-const FONT_BODY = 'Sweet Square Pro';
+// --- TYPOGRAPHY (CLEAN EXECUTIVE SANS-SERIF) ---
+const FONT_LOGO = 'Calibri';
+const FONT_HEAD = 'Calibri';
+const FONT_TECH = 'Calibri';
+const FONT_BODY = 'Calibri';
 
 
 // --- ASSET PATHS ---
@@ -120,16 +120,16 @@ function addDarkHeader(slide, title, subhead, badge = 'ACCIDIOX • KAYA BUILDAT
   slide.background = { color: NAVY };
   slide.addText(badge.toUpperCase(), {
     x: 0.8, y: 0.4, w: 11.7, h: 0.25,
-    fontSize: 9.5, bold: true, color: ORANGE, fontFace: FONT_BODY
+    fontSize: 9.5, bold: true, color: ORANGE, fontFace: 'Calibri'
   });
   slide.addText(title, {
     x: 0.8, y: 0.65, w: 11.7, h: 0.45,
-    fontSize: 22, bold: true, color: CREAM, fontFace: FONT_BODY
+    fontSize: 22, bold: true, color: CREAM, fontFace: 'Calibri'
   });
   if (subhead) {
     slide.addText(subhead, {
       x: 0.8, y: 1.12, w: 11.7, h: 0.3,
-      fontSize: 11.5, color: TAN, fontFace: FONT_BODY
+      fontSize: 11.5, color: TAN, fontFace: 'Calibri'
     });
   }
 }
@@ -138,16 +138,16 @@ function addLightHeader(slide, title, subhead, badge = 'ACCIDIOX • HARDWARE TE
   slide.background = { color: LIGHT_BG };
   slide.addText(badge.toUpperCase(), {
     x: 0.8, y: 0.4, w: 11.7, h: 0.25,
-    fontSize: 9, bold: true, color: ORANGE, fontFace: FONT_TECH, charSpacing: 1.5
+    fontSize: 9.5, bold: true, color: ORANGE, fontFace: 'Calibri'
   });
   slide.addText(title, {
     x: 0.8, y: 0.65, w: 11.7, h: 0.45,
-    fontSize: 20, bold: true, color: SLATE_900, fontFace: FONT_HEAD
+    fontSize: 22, bold: true, color: SLATE_900, fontFace: 'Calibri'
   });
   if (subhead) {
     slide.addText(subhead, {
       x: 0.8, y: 1.12, w: 11.7, h: 0.3,
-      fontSize: 11, color: SLATE_500, fontFace: FONT_BODY
+      fontSize: 11.5, color: SLATE_500, fontFace: 'Calibri'
     });
   }
 }
