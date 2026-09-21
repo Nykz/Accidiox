@@ -1,6 +1,17 @@
 // Accidiox Telematics Application Controller (Reliable Emergency Dispatch Edition)
 
-const CONTACTS_STORAGE_KEY = "accidiox_emergency_contacts";
+// Contacts are per rider account; a shared phone must never mix two riders' lists.
+const CONTACTS_STORAGE_KEY = (() => {
+  const u = window.AccidioxSession && AccidioxSession.user("rider");
+  return u ? `accidiox_emergency_contacts_${u.id}` : "accidiox_emergency_contacts";
+})();
+
+function contactsRequest(options = {}) {
+  const headers = { "Content-Type": "application/json" };
+  const token = window.AccidioxSession && AccidioxSession.token("rider");
+  if (token) headers["X-Auth-Token"] = token;
+  return fetch("api/contacts.php", { ...options, headers });
+}
 
 const CONFIG = {
   countdownDuration: 20,
@@ -21,12 +32,20 @@ let appState = {
   currentSpeed: 0,
   gpsAccuracy: null,
   nearestHospital: "Locating hospital...",
-  nearestPolice: "Locating police precinct...",
-  nearestPetrol: "Locating petrol pump...",
+  nearestHospitalDistance: null,
   nearestHospitalCoords: null,
+  nearestHospitalPhone: null,
+  nearestHospitalEmail: null,
+  nearestPolice: "Locating police precinct...",
+  nearestPoliceDistance: null,
   nearestPoliceCoords: null,
+  nearestPolicePhone: null,
+  nearestPetrol: "Locating petrol pump...",
+  nearestPetrolDistance: null,
   nearestPetrolCoords: null,
+  nearestPetrolPhone: null,
   isEmergencyActive: false,
+  incidentLatched: false,
   countdownTimer: null,
   remainingSeconds: 20,
   rideSeconds: 0,
@@ -384,7 +403,7 @@ async function loadContacts() {
 
   // 2. Fetch latest saved contacts from backend MySQL Database (Hostinger/XAMPP)
   try {
-    const res = await fetch("api/contacts.php");
+    const res = await contactsRequest();
     if (res.ok) {
       const data = await res.json();
       if (data.status === "success" && Array.isArray(data.contacts) && data.contacts.length > 0) {
@@ -392,10 +411,9 @@ async function loadContacts() {
         localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(appState.contacts));
       } else if (appState.contacts.length > 0) {
         // Database was empty, persist current local contacts to database
-        fetch("api/contacts.php", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contacts: appState.contacts })
+        contactsRequest({
+    method: "POST",
+    body: JSON.stringify({ contacts: appState.contacts })
         }).catch(err => console.warn("[DB Contacts Init Sync]", err));
       }
     }
@@ -411,6 +429,13 @@ async function loadContacts() {
     return { name: c.name || "Emergency Contact", phone: p };
   });
 
+  // The emergency contact from the rider's medical profile is always primary.
+  const merged = window.AccidioxRider && window.AccidioxRider.mergeProfileContact(appState.contacts);
+  if (merged) {
+    appState.contacts = merged;
+    saveContacts();
+  }
+
   if (appState.contacts.length === 0) {
     appState.contacts = [{ name: "My Phone (Verification Test)", phone: "917086249545" }];
     saveContacts();
@@ -423,9 +448,8 @@ function saveContacts() {
   localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(appState.contacts));
 
   // Persist contacts directly to MySQL database
-  fetch("api/contacts.php", {
+  contactsRequest({
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ contacts: appState.contacts })
   }).then(r => r.json()).then(res => {
     console.log("[Contacts DB Sync Success]", res);
@@ -788,6 +812,7 @@ async function findNearestFacility(lat, lon, category) {
   const [closestLon, closestLat] = closest.geometry.coordinates;
   const props = closest.properties || {};
   const phone = (props.contact && props.contact.phone) || (props.datasource && props.datasource.raw && (props.datasource.raw.phone || props.datasource.raw["contact:phone"])) || null;
+  const email = (props.contact && props.contact.email) || (props.datasource && props.datasource.raw && (props.datasource.raw.email || props.datasource.raw["contact:email"])) || null;
   const address = props.formatted || props.address_line2 || null;
 
   return {
@@ -796,11 +821,12 @@ async function findNearestFacility(lat, lon, category) {
     lat: closestLat,
     lon: closestLon,
     phone: phone,
+    email: email,
     address: address
   };
 }
 
-async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, coordsKey, phoneKey, fallbackName, notFoundText, el) {
+async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, coordsKey, phoneKey, emailKey, fallbackName, notFoundText, el) {
   try {
     const found = await findNearestFacility(lat, lon, category);
     if (found) {
@@ -808,17 +834,20 @@ async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, 
       appState[distanceKey] = found.distanceKm;
       appState[coordsKey] = { lat: found.lat, lon: found.lon };
       if (phoneKey) appState[phoneKey] = found.phone || null;
+      if (emailKey) appState[emailKey] = found.email || null;
     } else {
       appState[stateKey] = notFoundText;
       appState[distanceKey] = null;
       appState[coordsKey] = null;
       if (phoneKey) appState[phoneKey] = null;
+      if (emailKey) appState[emailKey] = null;
     }
   } catch (err) {
     appState[stateKey] = `Unable to locate ${fallbackName.toLowerCase()}`;
     appState[distanceKey] = null;
     appState[coordsKey] = null;
     if (phoneKey) appState[phoneKey] = null;
+    if (emailKey) appState[emailKey] = null;
   }
   if (el) {
     el.textContent = appState[distanceKey] != null
@@ -828,9 +857,9 @@ async function updateNearestFacility(lat, lon, category, stateKey, distanceKey, 
 }
 
 async function fetchNearestEmergencyFacilities(lat, lon) {
-  await updateNearestFacility(lat, lon, "healthcare.hospital", "nearestHospital", "nearestHospitalDistance", "nearestHospitalCoords", "nearestHospitalPhone", "Nearby Hospital", "No hospital found nearby", elHospitalDiag);
-  await updateNearestFacility(lat, lon, "service.police", "nearestPolice", "nearestPoliceDistance", "nearestPoliceCoords", "nearestPolicePhone", "Nearby Police Station", "No police station found nearby", elPoliceDiag);
-  await updateNearestFacility(lat, lon, "service.vehicle.fuel", "nearestPetrol", "nearestPetrolDistance", "nearestPetrolCoords", "nearestPetrolPhone", "Nearby Petrol Pump", "No petrol pump found nearby", elPetrolDiag);
+  await updateNearestFacility(lat, lon, "healthcare.hospital", "nearestHospital", "nearestHospitalDistance", "nearestHospitalCoords", "nearestHospitalPhone", "nearestHospitalEmail", "Nearby Hospital", "No hospital found nearby", elHospitalDiag);
+  await updateNearestFacility(lat, lon, "service.police", "nearestPolice", "nearestPoliceDistance", "nearestPoliceCoords", "nearestPolicePhone", null, "Nearby Police Station", "No police station found nearby", elPoliceDiag);
+  await updateNearestFacility(lat, lon, "service.vehicle.fuel", "nearestPetrol", "nearestPetrolDistance", "nearestPetrolCoords", "nearestPetrolPhone", null, "Nearby Petrol Pump", "No petrol pump found nearby", elPetrolDiag);
 }
 
 function setSafetyStatus(isCrash) {
@@ -852,9 +881,24 @@ function handleTelemetry(data) {
   if (elRollValue) elRollValue.textContent = `${data.roll}°`;
   if (elPitchValue) elPitchValue.textContent = `${data.pitch}°`;
 
+  // Latch Check: If an emergency incident was already triggered and dispatched
+  // (or canceled by user), do NOT re-trigger the countdown loop while the bike remains fallen.
+  if (appState.incidentLatched) {
+    if (currentTilt < APP_RECOVERY_TILT_LIMIT) {
+      // Bike has been recovered and lifted upright - re-arm system
+      appState.incidentLatched = false;
+      appCrashCandidateStartTime = null;
+      setSafetyStatus(false);
+      if (elHeroHelperText) elHeroHelperText.textContent = "Bike upright. Safety system re-armed and active.";
+    } else {
+      // Bike is still resting on its side - remain latched, do not start countdown loop
+      return;
+    }
+  }
+
   // Case 1: Firmware confirmed crash (firmware held > 85 deg for 10s continuously)
   if (cmd === "CRASH" || cmd === "MANUAL_SOS") {
-    if (!appState.isEmergencyActive) {
+    if (!appState.isEmergencyActive && !appState.incidentLatched) {
       setSafetyStatus(true);
       if (elHeroHelperText) elHeroHelperText.textContent = "Accident confirmed (10s continuous fall). Dispatching SOS...";
       triggerEmergencyRoutine(data);
@@ -866,11 +910,11 @@ function handleTelemetry(data) {
   if (currentTilt >= APP_CRASH_TILT_LIMIT) {
     if (!appCrashCandidateStartTime) {
       appCrashCandidateStartTime = Date.now();
-      if (elHeroHelperText && !appState.isEmergencyActive) {
+      if (elHeroHelperText && !appState.isEmergencyActive && !appState.incidentLatched) {
         elHeroHelperText.textContent = "High tilt detected. Awaiting 10s confirmation...";
       }
     } else if (Date.now() - appCrashCandidateStartTime >= APP_CRASH_CONFIRM_MS) {
-      if (!appState.isEmergencyActive) {
+      if (!appState.isEmergencyActive && !appState.incidentLatched) {
         setSafetyStatus(true);
         if (elHeroHelperText) elHeroHelperText.textContent = "Continuous 10s fall confirmed. Initiating emergency response.";
         triggerEmergencyRoutine(data);
@@ -986,9 +1030,11 @@ function cancelEmergency() {
   if ("vibrate" in navigator) navigator.vibrate(0);
 
   appState.isEmergencyActive = false;
+  appState.incidentLatched = true; // prevent immediate re-trigger while bike is still down
+  appCrashCandidateStartTime = null;
   elEmergencyModal.classList.remove("show");
   setSafetyStatus(false);
-  if (elHeroHelperText) elHeroHelperText.textContent = "Everything looks normal. No action needed.";
+  if (elHeroHelperText) elHeroHelperText.textContent = "Alert canceled by rider. Standby until bike is upright.";
 
   syncToDatabase({
     status: "CANCELED_FALSE_ALARM",
@@ -1010,6 +1056,8 @@ function executeSosDispatch(crashData) {
   if ("vibrate" in navigator) navigator.vibrate(0);
   elEmergencyModal.classList.remove("show");
   appState.isEmergencyActive = false;
+  appState.incidentLatched = true; // prevent looping while bike remains fallen
+  appCrashCandidateStartTime = null;
 
   const lat = appState.currentLat || 25.2677;
   const lon = appState.currentLon || 82.9913;
@@ -1062,7 +1110,58 @@ _This alert was generated automatically by the Smart Blackbox Safety System._`;
     appState.nearestPolice
   ];
 
+  // 1. WhatsApp Cloud SOS (Meta Cloud API)
   dispatchWhatsAppToContacts(waText, templateParams);
+
+  // 2. Automated Emergency Email Dispatch (Hospital Trauma Desk + Contacts)
+  dispatchEmergencyEmail({
+    latitude: lat,
+    longitude: lon,
+    locationName: appState.currentLocationName,
+    speedKmh: appState.currentSpeed,
+    tiltAngle: crashData.tilt || 85,
+    hospitalName: appState.nearestHospital,
+    hospitalEmail: appState.nearestHospitalEmail,
+    incidentTime: `${nowTime} (${nowDate})`,
+    contacts: appState.contacts
+  });
+
+  // 3. Automated Cloud Voice Call (Twilio IVR Voice Alert)
+  triggerAutomatedVoiceCall({
+    locationName: appState.currentLocationName,
+    hospitalName: appState.nearestHospital,
+    contacts: appState.contacts
+  });
+}
+
+// Dispatches Automated Emergency Email to Hospital Desk & Contacts
+async function dispatchEmergencyEmail(payload) {
+  try {
+    const res = await fetch("api/send_emergency_email.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    console.log("[Emergency Email Dispatch]", data);
+  } catch (err) {
+    console.warn("[Emergency Email Dispatch Error]", err);
+  }
+}
+
+// Dispatches Automated Outbound Voice Call via Twilio Cloud API
+async function triggerAutomatedVoiceCall(payload) {
+  try {
+    const res = await fetch("api/trigger_voice_call.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    console.log("[Automated Voice Call Dispatch]", data);
+  } catch (err) {
+    console.warn("[Automated Voice Call Dispatch Error]", err);
+  }
 }
 
 // Dispatches WhatsApp SOS alert to all emergency contacts via Meta Cloud API
@@ -1176,14 +1275,25 @@ function showSosSentConfirmation(results, message, globalError) {
 // 8. Database Sync
 async function syncToDatabase(payload) {
   try {
+    // The rider token links the crash to their medical profile (blood
+    // group, allergies) for the hospital + ambulance. Logging still works
+    // without it, so an expired session can never block an SOS.
+    const headers = { "Content-Type": "application/json" };
+    const token = window.AccidioxSession && AccidioxSession.token("rider");
+    if (token) headers["X-Auth-Token"] = token;
+
     const res = await fetch(CONFIG.wampApiUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      headers,
+      body: JSON.stringify({ ...payload, location_name: appState.currentLocationName })
     });
     const data = await res.json();
     console.log("[DB Sync]", data);
-    
+
+    if (data.incident_id && window.AccidioxRider) {
+      window.AccidioxRider.trackIncident(data.incident_id, data.alerted_hospitals || []);
+    }
+
     // Auto-refresh Incident Map / Admin view if initialized
     if (incidentMapInitialized) {
       loadIncidentLogs();

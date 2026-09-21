@@ -36,3 +36,10 @@ web_app/api/geoapify_config.php
 /*.apk
 /*.aab
 /Accidiox - Google Play package.zip
+
+# Same reasoning as db_config.php: Twilio auth token and SMTP credentials.
+web_app/api/twilio_voice_config.php
+web_app/api/email_config.php
+
+# Runtime state written by the PHP APIs (schema flags, old dispatch JSON).
+web_app/api/data/

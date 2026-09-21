@@ -1,0 +1,68 @@
+/* Rider onboarding: medical profile in four short steps. Builds on auth.css tokens. */
+
+.ob { max-width: 520px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: 0 20px; }
+
+.ob-top {
+  position: sticky; top: 0; z-index: 5; background: var(--bg);
+  display: flex; align-items: center; gap: 14px; padding: 16px 0 12px;
+}
+.ob-back { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: var(--text-2); flex-shrink: 0; }
+.ob-back:hover { background: var(--surface); color: var(--text); }
+.ob-back:disabled { visibility: hidden; }
+.ob-progress { flex: 1; height: 6px; border-radius: 6px; background: var(--border); overflow: hidden; }
+.ob-progress span { display: block; height: 100%; width: 25%; background: var(--brand); border-radius: 6px; transition: width .3s ease; }
+.ob-step { font-size: 12.5px; font-weight: 500; color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.ob-body { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 12px 0 24px; }
+.step { display: flex; flex-direction: column; gap: 16px; animation: stepIn .25s ease-out; }
+.step h1 { font-size: 26px; line-height: 1.2; letter-spacing: -0.025em; font-weight: 700; }
+.step .lead { color: var(--text-2); margin-top: -6px; font-size: 14.5px; }
+.field-label em { font-style: normal; color: var(--text-3); font-weight: 400; margin-left: 4px; }
+.input.upper { text-transform: uppercase; }
+
+.blood-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.blood {
+  height: 64px; border-radius: 14px; font-size: 20px; font-weight: 700; letter-spacing: -0.02em;
+  border: 1.5px solid var(--border-strong); background: var(--panel); color: var(--text);
+  transition: all .15s;
+}
+.blood:hover { border-color: var(--text-3); }
+.blood.active {
+  border-color: var(--danger); background: var(--danger-soft); color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.note {
+  display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px;
+  background: var(--panel); border: 1px solid var(--border); font-size: 13px; color: var(--text-2);
+}
+.note .ic { color: var(--brand); margin-top: 1px; }
+
+.summary { display: flex; flex-direction: column; border-radius: 14px; background: var(--panel); border: 1px solid var(--border); overflow: hidden; }
+.summary-head { display: flex; align-items: center; gap: 12px; padding: 14px; border-bottom: 1px solid var(--border); }
+.summary-avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); font-weight: 700; }
+.summary-head strong { display: block; font-size: 15px; }
+.summary-head span { font-size: 12.5px; color: var(--text-3); }
+.summary-blood { margin-left: auto; padding: 4px 10px; border-radius: 999px; background: var(--danger-soft); color: var(--danger); font-weight: 700; font-size: 14px; }
+.summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; font-size: 13px; }
+.summary-row + .summary-row { border-top: 1px solid var(--border); }
+.summary-row span { color: var(--text-3); }
+.summary-row strong { font-weight: 500; text-align: right; }
+
+.ob-actions {
+  position: sticky; bottom: 0; margin: auto -20px 0; padding: 14px 20px calc(14px + env(safe-area-inset-bottom));
+  display: flex; gap: 10px; background: linear-gradient(180deg, transparent, var(--bg) 30%);
+}
+.ob-actions .btn-primary { flex: 1; height: 48px; font-size: 15px; }
+.btn-ghost { height: 48px; color: var(--text-2); padding: 0 18px; }
+.btn-ghost:hover { background: var(--surface); }
+
+.done { text-align: center; align-items: center; padding-top: 40px; }
+.done-icon {
+  width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(22, 163, 74, 0.12); color: var(--success);
+}
+.done-icon .ic { width: 34px; height: 34px; stroke-width: 2.4; }
+
+@keyframes stepIn { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .step { animation: none; } }

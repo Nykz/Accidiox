@@ -2,13 +2,21 @@
 // Never intercepts BLE, geolocation, or the api/*.php, Nominatim, Overpass
 // and WhatsApp calls; those always hit the network live.
 
-const CACHE_NAME = "accidiox-shell-v22";
+const CACHE_NAME = "accidiox-shell-v23";
 const SHELL_FILES = [
   "index.html",
   "css/style.css",
   "js/app.js",
   "js/bluetooth.js",
   "js/bike3d.js",
+  "js/session.js",
+  "js/rider_account.js",
+  "auth.html",
+  "onboarding.html",
+  "css/auth.css",
+  "css/onboarding.css",
+  "js/auth.js",
+  "js/onboarding.js",
   "manifest.json",
   "assets/icons/icon-192.png",
   "assets/icons/icon-512.png"

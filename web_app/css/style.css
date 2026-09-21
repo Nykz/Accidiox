@@ -1813,3 +1813,96 @@ body {
 
 
 
+
+/* ============== Rider account: profile card (Settings) ============== */
+.profile-card { display: flex; flex-direction: column; gap: 14px; }
+.profile-head { display: flex; align-items: center; gap: 12px; }
+.profile-avatar {
+  width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--primary-tint); color: var(--primary); font-weight: 700; font-size: 16px;
+}
+.profile-id { min-width: 0; flex: 1; }
+.profile-id strong { display: block; font-size: 16px; color: var(--text-main); }
+.profile-id span { display: block; font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-blood {
+  display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: var(--radius-full);
+  background: var(--danger-tint); color: var(--danger); font-weight: 800; font-size: 16px;
+}
+.profile-blood .icon { width: 15px; height: 15px; }
+.profile-rows { border: 1px solid var(--outline-variant); border-radius: var(--radius-md); overflow: hidden; }
+.profile-row { display: flex; justify-content: space-between; gap: 14px; padding: 10px 14px; font-size: 13px; }
+.profile-row + .profile-row { border-top: 1px solid var(--outline-variant); }
+.profile-row span { color: var(--text-sub); flex-shrink: 0; }
+.profile-row strong { color: var(--text-main); font-weight: 500; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-note { font-size: 12px; color: var(--text-muted); }
+.profile-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.profile-actions .btn { text-decoration: none; padding: 11px 12px; }
+
+/* ============== Live rescue status (home, after a crash) ============== */
+.rescue-card { display: flex; flex-direction: column; gap: 14px; border-width: 1.5px; }
+.rescue-card.is-waiting { border-color: rgba(220, 38, 38, 0.35); background: linear-gradient(180deg, rgba(220, 38, 38, 0.06), #fff 60%); }
+.rescue-card.is-coming { border-color: rgba(37, 99, 235, 0.35); background: linear-gradient(180deg, rgba(37, 99, 235, 0.07), #fff 60%); }
+.rescue-card.is-done { border-color: rgba(22, 163, 74, 0.35); background: linear-gradient(180deg, rgba(22, 163, 74, 0.07), #fff 60%); }
+
+.rescue-top { display: flex; align-items: center; gap: 12px; }
+.rescue-icon {
+  width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  background: var(--primary); box-shadow: 0 6px 16px -6px var(--primary-glow);
+}
+.is-waiting .rescue-icon { background: var(--danger); box-shadow: 0 6px 16px -6px var(--danger-glow); }
+.is-done .rescue-icon { background: var(--success); box-shadow: 0 6px 16px -6px var(--success-glow); }
+.rescue-icon .icon { width: 22px; height: 22px; }
+.rescue-icon.pulse { animation: rescuePulse 1.6s ease-in-out infinite; }
+.rescue-head-text { min-width: 0; flex: 1; }
+.rescue-eyebrow { font-size: 12px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rescue-top h3 { font-size: 18px; font-weight: 800; color: var(--text-main); line-height: 1.2; }
+.rescue-eta { margin-left: auto; text-align: right; line-height: 1; }
+.rescue-eta strong { display: block; font-size: 30px; font-weight: 900; color: var(--primary); font-variant-numeric: tabular-nums; }
+.rescue-eta span { font-size: 12px; font-weight: 700; color: var(--text-sub); }
+.rescue-close {
+  margin-left: auto; width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; background: var(--bg-card-alt); color: var(--text-sub);
+}
+.rescue-text { font-size: 13.5px; color: var(--text-sub); line-height: 1.5; }
+
+.rescue-hospitals { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.rescue-hospitals li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius-sm); background: var(--bg-card-alt); font-size: 13.5px; }
+.rescue-rank { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--outline); font-size: 12px; font-weight: 800; color: var(--text-sub); }
+.rescue-hname { flex: 1; font-weight: 600; color: var(--text-main); }
+.rescue-dist { font-size: 12.5px; color: var(--text-sub); font-variant-numeric: tabular-nums; }
+
+.rescue-steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.rescue-step { display: flex; flex-direction: column; gap: 6px; }
+.rescue-step i { display: block; height: 4px; border-radius: 4px; background: var(--outline); }
+.rescue-step.done i { background: var(--primary); }
+.is-done .rescue-step.done i { background: var(--success); }
+.rescue-step.current i { background: linear-gradient(90deg, var(--primary) 50%, var(--outline) 50%); background-size: 200% 100%; animation: rescueSweep 1.5s linear infinite; }
+.rescue-step span { font-size: 11px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+.rescue-step.done span, .rescue-step.current span { color: var(--text-main); }
+
+.rescue-unit { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); background: #fff; border: 1px solid var(--outline-variant); }
+.rescue-unit-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--primary-tint); color: var(--primary); flex-shrink: 0; }
+.rescue-unit-text { min-width: 0; flex: 1; }
+.rescue-unit-text strong { display: block; font-size: 14px; color: var(--text-main); }
+.rescue-unit-text span { display: block; font-size: 12.5px; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rescue-call {
+  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--success); color: #fff; box-shadow: 0 4px 12px -4px var(--success-glow);
+}
+.rescue-call .icon { width: 18px; height: 18px; }
+
+.rescue-map-amb {
+  width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: #fff; color: var(--primary); box-shadow: 0 0 0 4px var(--primary-tint-strong), 0 4px 10px rgba(0,0,0,.25);
+}
+.rescue-map-amb .icon { width: 17px; height: 17px; }
+.rescue-map-hosp {
+  width: 24px; height: 24px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  background: var(--danger); color: #fff; font-weight: 900; font-size: 16px; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+
+@keyframes rescuePulse { 0%, 100% { box-shadow: 0 0 0 0 var(--danger-glow); } 50% { box-shadow: 0 0 0 10px transparent; } }
+@keyframes rescueSweep { from { background-position: 100% 0; } to { background-position: -100% 0; } }

@@ -52,3 +52,22 @@ CREATE TABLE IF NOT EXISTS `emergency_contacts` (
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+
+-- =======================================================
+-- Accounts + decentralized dispatch (v2)
+-- These tables are created automatically on the first API request by
+-- api/lib/bootstrap.php (ensure_schema), which also seeds the demo
+-- network: 4 Varanasi hospitals, 9 ambulances and demo logins
+-- (password demo1234). Nothing to import by hand.
+--
+--   users              rider / hospital / ambulance accounts
+--   user_sessions      hashed API tokens (X-Auth-Token header), 30-day expiry
+--   rider_profiles     blood group, allergies, conditions, emergency contact
+--   hospitals          location, trauma beds
+--   ambulances         fleet per hospital, crew login, live GPS, status
+--   incidents          one per confirmed crash, rider profile snapshot
+--   incident_alerts    the 3 nearest hospitals alerted for each incident
+--   incident_events    audit timeline (reported, alerted, dispatched, ...)
+--
+-- emergency_contacts also gains a user_id column (NULL = legacy shared list).
+-- =======================================================

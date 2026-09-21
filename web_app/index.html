@@ -15,7 +15,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="css/style.css?v=22" />
+  <link rel="stylesheet" href="css/style.css?v=23" />
+
+  <!-- Rider session guard: no token -> sign in; signed in but no medical
+       profile -> onboarding. Offline launches keep working with the cached
+       session so crash detection is never blocked by the network. -->
+  <script src="js/session.js?v=1"></script>
+  <script>
+    (function () {
+      var u = AccidioxSession.guard("rider", {
+        onUser: function (fresh) {
+          if (!fresh.onboarded) location.replace("onboarding.html");
+          window.dispatchEvent(new CustomEvent("accidiox:user", { detail: fresh }));
+        }
+      });
+      if (u && !u.onboarded) location.replace("onboarding.html");
+    })();
+  </script>
 </head>
 <body>
 
@@ -37,6 +53,9 @@
     </header>
 
     <main class="container" id="homeView">
+
+      <!-- Live rescue status after a confirmed crash (filled by rider_account.js) -->
+      <section class="card rescue-card" id="rescueCard" hidden></section>
 
       <!-- Hardware Connection Action Box -->
       <section class="card connect-row">
@@ -161,6 +180,9 @@
 
     <!-- Settings View: technical details + configuration, kept off the main screen -->
     <main class="container" id="settingsView" style="display: none;">
+
+      <!-- Rider account + medical profile (filled by rider_account.js) -->
+      <section class="card profile-card" id="profileCard"></section>
 
       <!-- Subsystem Diagnostics Checklist -->
       <section class="card">
@@ -415,7 +437,8 @@
   <script type="module" src="js/bike3d.js?v=20"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/bluetooth.js?v=20"></script>
-  <script src="js/app.js?v=22"></script>
+  <script src="js/app.js?v=23"></script>
+  <script src="js/rider_account.js?v=1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

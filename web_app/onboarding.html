@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-role="rider">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f1f2f5" />
+  <title>Your medical profile · Accidiox</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="assets/icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="css/auth.css?v=1" />
+  <link rel="stylesheet" href="css/onboarding.css?v=1" />
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+      <symbol id="i-droplet" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5S5 13 5 15a7 7 0 0 0 7 7z"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="ob">
+    <header class="ob-top">
+      <button type="button" class="ob-back" id="btnBack" aria-label="Back"><svg class="ic"><use href="#i-back"/></svg></button>
+      <div class="ob-progress" aria-hidden="true"><span id="progressBar"></span></div>
+      <span class="ob-step" id="stepCount">1 of 4</span>
+    </header>
+
+    <form id="profileForm" class="ob-body" novalidate>
+
+      <!-- Step 1 -->
+      <section class="step" data-step="1">
+        <h1>Let's set up your safety profile</h1>
+        <p class="lead">If you crash, this is what the ambulance crew and hospital see first. It stays private until then.</p>
+
+        <label class="field">
+          <span class="field-label">Full name</span>
+          <input class="input" name="full_name" autocomplete="name" placeholder="As on your ID" />
+        </label>
+        <label class="field">
+          <span class="field-label">Mobile number</span>
+          <input class="input" name="phone" type="tel" autocomplete="tel" placeholder="98765 43210" />
+        </label>
+        <label class="field">
+          <span class="field-label">Date of birth</span>
+          <input class="input" name="date_of_birth" type="date" max="2015-12-31" />
+        </label>
+        <div class="field">
+          <span class="field-label">Gender</span>
+          <div class="chips" data-chip="gender">
+            <button type="button" class="chip" data-value="Male">Male</button>
+            <button type="button" class="chip" data-value="Female">Female</button>
+            <button type="button" class="chip" data-value="Other">Other</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 2 -->
+      <section class="step" data-step="2" hidden>
+        <h1>What's your blood group?</h1>
+        <p class="lead">Sent to the ambulance the moment it's dispatched, so blood can be arranged before you reach the hospital.</p>
+
+        <div class="blood-grid" data-chip="blood_group">
+          <button type="button" class="blood" data-value="A+">A+</button>
+          <button type="button" class="blood" data-value="A-">A−</button>
+          <button type="button" class="blood" data-value="B+">B+</button>
+          <button type="button" class="blood" data-value="B-">B−</button>
+          <button type="button" class="blood" data-value="AB+">AB+</button>
+          <button type="button" class="blood" data-value="AB-">AB−</button>
+          <button type="button" class="blood" data-value="O+">O+</button>
+          <button type="button" class="blood" data-value="O-">O−</button>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Allergies <em>optional</em></span>
+          <input class="input" name="allergies" placeholder="e.g. Penicillin, peanuts. Leave blank if none" />
+        </label>
+        <label class="field">
+          <span class="field-label">Medical conditions <em>optional</em></span>
+          <input class="input" name="conditions" placeholder="e.g. Diabetes, asthma, epilepsy" />
+        </label>
+
+        <div class="note"><svg class="ic ic-sm"><use href="#i-droplet"/></svg><span>Not sure? Check a blood test report or your blood donor card. You can update it later in Settings.</span></div>
+      </section>
+
+      <!-- Step 3 -->
+      <section class="step" data-step="3" hidden>
+        <h1>Who should we alert?</h1>
+        <p class="lead">This person gets an automatic voice call and a WhatsApp message with your live location if you crash.</p>
+
+        <label class="field">
+          <span class="field-label">Contact name</span>
+          <input class="input" name="emergency_name" placeholder="e.g. Rajesh Sharma" />
+        </label>
+        <div class="field">
+          <span class="field-label">Relationship</span>
+          <div class="chips" data-chip="emergency_relation">
+            <button type="button" class="chip" data-value="Father">Father</button>
+            <button type="button" class="chip" data-value="Mother">Mother</button>
+            <button type="button" class="chip" data-value="Spouse">Spouse</button>
+            <button type="button" class="chip" data-value="Sibling">Sibling</button>
+            <button type="button" class="chip" data-value="Friend">Friend</button>
+          </div>
+        </div>
+        <label class="field">
+          <span class="field-label">Their mobile number</span>
+          <input class="input" name="emergency_phone" type="tel" placeholder="98765 43210" />
+        </label>
+        <div class="note"><svg class="ic ic-sm"><use href="#i-shield"/></svg><span>You can add more contacts later in Settings. The first one is called first.</span></div>
+      </section>
+
+      <!-- Step 4 -->
+      <section class="step" data-step="4" hidden>
+        <h1>Your vehicle</h1>
+        <p class="lead">Helps police and the crew identify the right vehicle at the scene. Optional.</p>
+
+        <label class="field">
+          <span class="field-label">Registration number <em>optional</em></span>
+          <input class="input mono upper" name="vehicle_number" placeholder="UP65 EX 4521" />
+        </label>
+        <label class="field">
+          <span class="field-label">Make &amp; model <em>optional</em></span>
+          <input class="input" name="vehicle_model" placeholder="e.g. Honda Activa 6G" />
+        </label>
+
+        <div class="summary" id="summary"></div>
+      </section>
+
+      <div class="alert" id="formError" role="alert" hidden></div>
+
+      <footer class="ob-actions">
+        <button type="button" class="btn btn-ghost" id="btnSkip" hidden>Skip</button>
+        <button type="submit" class="btn btn-primary" id="btnNext"><span>Continue</span><svg class="ic ic-sm"><use href="#i-arrow"/></svg></button>
+      </footer>
+    </form>
+  </div>
+
+  <script src="js/session.js?v=1"></script>
+  <script src="js/onboarding.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0d12" />
+  <title>Accidiox Dispatch · Hospital Command</title>
+  <link rel="icon" type="image/png" href="assets/icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/hospital_dashboard.css?v=10" />
+</head>
+<body>
+
+  <!-- Icon sprite (Lucide-style strokes) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-logo" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.4 3.4 8.2 8 9 4.6-.8 8-4.6 8-9V6l-8-3Z"/><path d="M12 8.5v7M8.5 12h7"/></symbol>
+      <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+      <symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></symbol>
+      <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></symbol>
+      <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
+      <symbol id="i-ambulance" viewBox="0 0 24 24"><path d="M10 10H6M8 8v4"/><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.28a1 1 0 0 0-.68-.95l-1.9-.64a1 1 0 0 1-.6-.53L17.6 9.6A1 1 0 0 0 16.7 9H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M9 18h6"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+      <symbol id="i-bed" viewBox="0 0 24 24"><path d="M2 4v16M2 8h18a2 2 0 0 1 2 2v10M2 17h20M6 8v9"/></symbol>
+      <symbol id="i-building" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M12 4v4M10 14h4M10 18h4"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+      <symbol id="i-droplet" viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5S5 13 5 15a7 7 0 0 0 7 7z"/></symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+      <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+      <symbol id="i-radio" viewBox="0 0 24 24"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5M19.1 4.9C23 8.8 23 15.1 19.1 19"/></symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+      <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+      <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="app">
+
+    <!-- ================= Top bar ================= -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <a class="brand" href="#" aria-label="Accidiox Dispatch">
+          <span class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></span>
+          <span class="brand-name">Accidiox</span>
+          <span class="brand-product">Dispatch</span>
+        </a>
+
+        <span class="topbar-divider" aria-hidden="true"></span>
+
+        <!-- Signed-in facility / account menu -->
+        <div class="facility-switcher" id="facilitySwitcher">
+          <button class="facility-trigger" id="facilityTrigger" aria-haspopup="menu" aria-expanded="false">
+            <span class="facility-avatar" id="facilityAvatar">—</span>
+            <span class="facility-text">
+              <span class="facility-name" id="facilityName">Loading…</span>
+              <span class="facility-meta" id="facilityMeta"></span>
+            </span>
+            <svg class="ic ic-sm facility-chevron"><use href="#i-chevron-down"/></svg>
+          </button>
+          <div class="facility-menu" id="facilityMenu" role="menu" aria-label="Account">
+            <div class="facility-menu-label">Signed in as</div>
+            <div class="account-row">
+              <span class="facility-avatar" id="accountAvatar">—</span>
+              <span class="facility-text">
+                <span class="facility-name" id="accountName">—</span>
+                <span class="facility-meta" id="accountEmail"></span>
+              </span>
+            </div>
+            <div class="menu-sep"></div>
+            <a class="facility-option" href="auth.html?role=hospital&switch=1" role="menuitem">
+              <svg class="ic ic-sm"><use href="#i-building"/></svg><span>Switch hospital account</span>
+            </a>
+            <button class="facility-option danger" id="btnSignOut" role="menuitem">
+              <svg class="ic ic-sm"><use href="#i-logout"/></svg><span>Sign out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <div class="live-pill" id="livePill" title="Connection to dispatch grid">
+          <span class="live-dot"></span>
+          <span id="livePillText">Live</span>
+        </div>
+        <div class="clock" id="clock">--:--:--</div>
+        <span class="topbar-divider" aria-hidden="true"></span>
+        <button class="icon-btn" id="btnAudioToggle" title="Mute alert sound" aria-pressed="true">
+          <svg class="ic"><use href="#i-bell"/></svg>
+        </button>
+        <button class="icon-btn" id="btnResetIncidents" title="Reset demo data">
+          <svg class="ic"><use href="#i-rotate"/></svg>
+        </button>
+        <button class="btn btn-secondary" id="btnSimulateCrash" title="Broadcast a simulated crash SOS to every facility">
+          <svg class="ic ic-sm"><use href="#i-zap"/></svg>
+          <span>Simulate SOS</span>
+          <span class="kbd-tag">Demo</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ================= KPI strip ================= -->
+    <section class="kpis" aria-label="Key metrics">
+      <div class="kpi" id="kpiUnclaimed">
+        <div class="kpi-head"><span class="kpi-label">Awaiting response</span><span class="kpi-icon danger"><svg class="ic ic-sm"><use href="#i-alert"/></svg></span></div>
+        <div class="kpi-value" data-kpi="unclaimed">0</div>
+        <div class="kpi-foot" data-kpi="unclaimedFoot">No open alerts</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-head"><span class="kpi-label">Your active dispatches</span><span class="kpi-icon brand"><svg class="ic ic-sm"><use href="#i-ambulance"/></svg></span></div>
+        <div class="kpi-value" data-kpi="mine">0</div>
+        <div class="kpi-foot" data-kpi="mineFoot">No units deployed</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-head"><span class="kpi-label">Avg. claim time</span><span class="kpi-icon"><svg class="ic ic-sm"><use href="#i-clock"/></svg></span></div>
+        <div class="kpi-value" data-kpi="claimTime">—</div>
+        <div class="kpi-foot" data-kpi="claimTimeFoot">Across the regional grid</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-head"><span class="kpi-label">Ambulances ready</span><span class="kpi-icon success"><svg class="ic ic-sm"><use href="#i-ambulance"/></svg></span></div>
+        <div class="kpi-value" data-kpi="ambulances">0</div>
+        <div class="kpi-foot" data-kpi="ambulancesFoot">At this facility</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-head"><span class="kpi-label">Trauma beds free</span><span class="kpi-icon success"><svg class="ic ic-sm"><use href="#i-bed"/></svg></span></div>
+        <div class="kpi-row">
+          <div class="kpi-value" data-kpi="beds">0</div>
+          <div class="stepper-btns">
+            <button class="step-btn" data-beds="-1" title="One bed fewer" aria-label="Decrease free beds"><svg class="ic ic-xs"><use href="#i-minus"/></svg></button>
+            <button class="step-btn" data-beds="1" title="One bed more" aria-label="Increase free beds"><svg class="ic ic-xs"><use href="#i-plus"/></svg></button>
+          </div>
+        </div>
+        <div class="kpi-foot" data-kpi="bedsFoot">Emergency department</div>
+      </div>
+    </section>
+
+    <!-- ================= Workspace ================= -->
+    <main class="workspace">
+
+      <!-- Incident queue -->
+      <section class="panel queue-panel" aria-label="Incident queue">
+        <div class="panel-head">
+          <div class="panel-title">
+            <h2>Incidents</h2>
+            <span class="count-badge" id="queueCount">0</span>
+          </div>
+        </div>
+        <div class="segmented" id="queueFilters" role="tablist">
+          <button class="seg active" data-filter="all" role="tab">All <span data-count="all">0</span></button>
+          <button class="seg" data-filter="unclaimed" role="tab">Open <span data-count="unclaimed">0</span></button>
+          <button class="seg" data-filter="mine" role="tab">Ours <span data-count="mine">0</span></button>
+          <button class="seg" data-filter="others" role="tab">Others <span data-count="others">0</span></button>
+        </div>
+        <div class="queue-list" id="incidentQueueList"></div>
+      </section>
+
+      <!-- Map + network -->
+      <section class="center-col">
+        <div class="panel map-panel">
+          <div id="hospitalMap"></div>
+
+          <div class="map-overlay map-overlay-tl" id="mapFocusCard" hidden></div>
+
+          <div class="map-controls">
+            <button class="map-btn" id="btnZoomIn" title="Zoom in"><svg class="ic ic-sm"><use href="#i-plus"/></svg></button>
+            <button class="map-btn" id="btnZoomOut" title="Zoom out"><svg class="ic ic-sm"><use href="#i-minus"/></svg></button>
+            <button class="map-btn" id="btnFitAll" title="Fit all incidents"><svg class="ic ic-sm"><use href="#i-maximize"/></svg></button>
+          </div>
+
+          <div class="map-legend">
+            <span><i class="lg lg-crit"></i>Open alert</span>
+            <span><i class="lg lg-active"></i>Dispatched</span>
+            <span><i class="lg lg-hosp"></i>Facility</span>
+            <span><i class="lg lg-route"></i>Route</span>
+          </div>
+        </div>
+
+        <div class="panel network-panel">
+          <div class="panel-head compact">
+            <div class="panel-title"><h2>Regional network</h2></div>
+            <span class="muted-sm" id="networkSummary">— facilities online</span>
+          </div>
+          <div class="network-grid" id="hospitalNetwork"></div>
+        </div>
+      </section>
+
+      <!-- Incident detail -->
+      <aside class="panel detail-panel" id="detailPanel" aria-label="Incident details"></aside>
+
+    </main>
+  </div>
+
+  <!-- ================= Dispatch dialog ================= -->
+  <div class="dialog-backdrop" id="claimModal" aria-hidden="true">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="claimTitle">
+      <div class="dialog-head">
+        <div>
+          <h3 id="claimTitle">Dispatch ambulance</h3>
+          <p class="dialog-sub">From <strong id="modalClaimHospitalName">—</strong>. Other facilities are moved to standby once you confirm.</p>
+        </div>
+        <button class="icon-btn ghost" id="btnCloseClaimModal" aria-label="Close"><svg class="ic"><use href="#i-x"/></svg></button>
+      </div>
+
+      <div class="dialog-incident" id="modalIncidentSummary"></div>
+
+      <form id="claimAmbulanceForm">
+        <fieldset class="field">
+          <legend class="field-label">Response unit</legend>
+          <div class="unit-options" id="unitOptions"></div>
+        </fieldset>
+
+        <div class="dialog-eta" id="modalEta"></div>
+
+        <div class="dialog-actions">
+          <button type="button" id="btnCancelClaimModal" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-danger" id="btnConfirmClaim">
+            <svg class="ic ic-sm"><use href="#i-ambulance"/></svg>
+            <span>Confirm dispatch</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= Confirm dialog ================= -->
+  <div class="dialog-backdrop" id="confirmModal" aria-hidden="true">
+    <div class="dialog dialog-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <h3 id="confirmTitle">Reset demo data?</h3>
+      <p class="dialog-sub" id="confirmBody">This deletes every incident on the grid (real and simulated) and returns all ambulances to base. Use it only between demos.</p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" id="btnConfirmCancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmOk">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/session.js?v=1"></script>
+  <script src="js/hospital_dashboard.js?v=8"></script>
+</body>
+</html>

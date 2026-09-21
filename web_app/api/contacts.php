@@ -1,157 +1,68 @@
 <?php
-// API endpoint for syncing and managing Emergency Contacts in the MySQL database.
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
-header("Content-Type: application/json");
+// Emergency contacts for the rider app, scoped to the signed-in rider.
+// Requests without a rider token read/write the legacy shared list
+// (user_id IS NULL), so older installs keep working.
+//   GET              -> this rider's contacts
+//   POST {contacts}  -> replace this rider's list (first = primary)
+//   POST {name, phone, is_primary} -> add one
+//   DELETE {id} | {phone}
+require_once __DIR__ . '/lib/bootstrap.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit();
-}
+$rider = current_user($conn);
+$uid = $rider && $rider['role'] === 'rider' ? (int) $rider['id'] : null;
+// MySQL's null-safe equality lets one query serve both scopes.
+$scope = "user_id <=> ?";
 
-require_once 'db_config.php';
-
-// Ensure table exists
-$createTableSql = "CREATE TABLE IF NOT EXISTS `emergency_contacts` (
-    `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `name` VARCHAR(100) NOT NULL,
-    `phone` VARCHAR(20) NOT NULL,
-    `is_primary` TINYINT(1) DEFAULT 0,
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
-
-$conn->query($createTableSql);
-
-function normalizePhone($phone) {
-    $digits = preg_replace('/[^0-9]/', '', (string)$phone);
-    if (strlen($digits) === 10) {
-        $digits = "91" . $digits;
-    } elseif (strlen($digits) === 11 && substr($digits, 0, 1) === "0") {
-        $digits = "91" . substr($digits, 1);
-    }
-    return $digits;
+function contact_rows($conn, $scope, $uid) {
+    return array_map(fn($r) => [
+        "id" => (int) $r['id'],
+        "name" => $r['name'],
+        "phone" => normalize_phone($r['phone']),
+        "is_primary" => (int) $r['is_primary'] === 1,
+    ], db_all($conn, "SELECT id, name, phone, is_primary FROM emergency_contacts WHERE $scope ORDER BY is_primary DESC, id ASC", [$uid]));
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
-    $sql = "SELECT id, name, phone, is_primary FROM `emergency_contacts` ORDER BY is_primary DESC, id ASC";
-    $result = $conn->query($sql);
-    $contacts = [];
-
-    if ($result) {
-        while ($row = $result->fetch_assoc()) {
-            $contacts[] = [
-                "id" => intval($row['id']),
-                "name" => $row['name'],
-                "phone" => normalizePhone($row['phone']),
-                "is_primary" => intval($row['is_primary']) === 1
-            ];
-        }
-    }
-
-    echo json_encode([
-        "status" => "success",
-        "contacts" => $contacts
-    ]);
-    $conn->close();
-    exit();
+    json_out(["status" => "success", "contacts" => contact_rows($conn, $scope, $uid)]);
 }
 
 if ($method === 'POST') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    if (!$input) {
-        $input = $_POST;
-    }
+    $input = read_json();
 
-    // Bulk replace / full contacts list sync
     if (isset($input['contacts']) && is_array($input['contacts'])) {
-        $incomingContacts = $input['contacts'];
-
-        $conn->query("TRUNCATE TABLE `emergency_contacts`");
-
-        $stmt = $conn->prepare("INSERT INTO `emergency_contacts` (name, phone, is_primary) VALUES (?, ?, ?)");
-        $savedContacts = [];
-
-        foreach ($incomingContacts as $idx => $c) {
-            $name = isset($c['name']) && trim($c['name']) !== '' ? trim($c['name']) : 'Emergency Contact';
-            $rawPhone = isset($c['phone']) ? $c['phone'] : '';
-            $phone = normalizePhone($rawPhone);
+        db_exec($conn, "DELETE FROM emergency_contacts WHERE $scope", [$uid]);
+        $idx = 0;
+        foreach ($input['contacts'] as $c) {
+            $name = trim((string) ($c['name'] ?? '')) ?: 'Emergency Contact';
+            $phone = normalize_phone($c['phone'] ?? '');
             if (strlen($phone) < 10) continue;
-
-            $isPrimary = ($idx === 0) ? 1 : 0;
-            $stmt->bind_param("ssi", $name, $phone, $isPrimary);
-            $stmt->execute();
-
-            $savedContacts[] = [
-                "id" => $conn->insert_id,
-                "name" => $name,
-                "phone" => $phone,
-                "is_primary" => (bool)$isPrimary
-            ];
+            db_exec($conn, "INSERT INTO emergency_contacts (user_id, name, phone, is_primary) VALUES (?,?,?,?)",
+                [$uid, mb_substr($name, 0, 100), $phone, $idx === 0 ? 1 : 0]);
+            $idx++;
         }
-        $stmt->close();
-
-        echo json_encode([
-            "status" => "success",
-            "message" => "Contacts synchronized to database successfully",
-            "contacts" => $savedContacts
-        ]);
-        $conn->close();
-        exit();
+        json_out(["status" => "success", "message" => "Contacts synchronized", "contacts" => contact_rows($conn, $scope, $uid)]);
     }
 
-    // Add single contact
-    $name = isset($input['name']) && trim($input['name']) !== '' ? trim($input['name']) : 'Emergency Contact';
-    $rawPhone = isset($input['phone']) ? $input['phone'] : '';
-    $phone = normalizePhone($rawPhone);
-
-    if (strlen($phone) < 10) {
-        http_response_code(400);
-        echo json_encode(["status" => "error", "message" => "Valid phone number with at least 10 digits is required"]);
-        $conn->close();
-        exit();
-    }
-
-    $isPrimary = isset($input['is_primary']) && $input['is_primary'] ? 1 : 0;
-    $stmt = $conn->prepare("INSERT INTO `emergency_contacts` (name, phone, is_primary) VALUES (?, ?, ?)");
-    $stmt->bind_param("ssi", $name, $phone, $isPrimary);
-    
-    if ($stmt->execute()) {
-        echo json_encode([
-            "status" => "success",
-            "message" => "Contact added successfully",
-            "contact" => [
-                "id" => $conn->insert_id,
-                "name" => $name,
-                "phone" => $phone,
-                "is_primary" => (bool)$isPrimary
-            ]
-        ]);
-    } else {
-        http_response_code(500);
-        echo json_encode(["status" => "error", "message" => "Failed to save contact: " . $conn->error]);
-    }
-    $stmt->close();
-    $conn->close();
-    exit();
+    $name = trim((string) ($input['name'] ?? '')) ?: 'Emergency Contact';
+    $phone = normalize_phone($input['phone'] ?? '');
+    if (strlen($phone) < 10) fail("Valid phone number with at least 10 digits is required");
+    db_exec($conn, "INSERT INTO emergency_contacts (user_id, name, phone, is_primary) VALUES (?,?,?,?)",
+        [$uid, mb_substr($name, 0, 100), $phone, !empty($input['is_primary']) ? 1 : 0]);
+    json_out(["status" => "success", "message" => "Contact added", "contact" => [
+        "id" => $conn->insert_id, "name" => $name, "phone" => $phone, "is_primary" => !empty($input['is_primary']),
+    ]]);
 }
 
 if ($method === 'DELETE') {
-    $input = json_decode(file_get_contents('php://input'), true);
+    $input = read_json();
     if (isset($input['id'])) {
-        $id = intval($input['id']);
-        $conn->query("DELETE FROM `emergency_contacts` WHERE id = $id");
+        db_exec($conn, "DELETE FROM emergency_contacts WHERE id = ? AND $scope", [(int) $input['id'], $uid]);
     } elseif (isset($input['phone'])) {
-        $phone = normalizePhone($input['phone']);
-        $conn->query("DELETE FROM `emergency_contacts` WHERE phone = '{$phone}'");
+        db_exec($conn, "DELETE FROM emergency_contacts WHERE phone = ? AND $scope", [normalize_phone($input['phone']), $uid]);
     }
-
-    echo json_encode(["status" => "success", "message" => "Contact deleted"]);
-    $conn->close();
-    exit();
+    json_out(["status" => "success", "message" => "Contact deleted"]);
 }
 
-$conn->close();
-?>
+fail("Unsupported method", 405);

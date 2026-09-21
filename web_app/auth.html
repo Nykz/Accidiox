@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f1f2f5" />
+  <title>Sign in · Accidiox</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="assets/icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="css/auth.css?v=1" />
+  <script>
+    // Pick the theme before first paint to avoid a light/dark flash.
+    (function () {
+      var r = new URLSearchParams(location.search).get("role");
+      document.documentElement.dataset.role = ["rider", "hospital", "ambulance"].indexOf(r) >= 0 ? r : "rider";
+    })();
+  </script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-logo" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4.4 3.4 8.2 8 9 4.6-.8 8-4.6 8-9V6l-8-3Z"/><path d="M12 8.5v7M8.5 12h7"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-bike" viewBox="0 0 24 24"><circle cx="5.5" cy="17" r="3"/><circle cx="18.5" cy="17" r="3"/><path d="M5.5 17 9 9h4l5.5 8M9 9H7.5M13 9l1.8-3h2.7"/></symbol>
+      <symbol id="i-building" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M12 4v4"/></symbol>
+      <symbol id="i-ambulance" viewBox="0 0 24 24"><path d="M10 10H6M8 8v4"/><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.28a1 1 0 0 0-.68-.95l-1.9-.64a1 1 0 0 1-.6-.53L17.6 9.6A1 1 0 0 0 16.7 9H14"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/><path d="M9 18h6"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="auth">
+    <!-- Brand / story panel -->
+    <aside class="story">
+      <a class="brand" href="index.html">
+        <span class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></span>
+        <span class="brand-name">Accidiox</span>
+        <span class="brand-tag" id="brandTag">Rider</span>
+      </a>
+
+      <div class="story-body">
+        <h1 id="storyTitle">Ride with a guardian.</h1>
+        <p id="storyLead">Accidiox watches every lean and impact. If you go down, the nearest hospitals and your family know within seconds.</p>
+        <ul class="story-points" id="storyPoints"></ul>
+      </div>
+
+      <div class="story-foot" id="storyFoot">Built for the golden hour · KAYA Buildathon, IIT (BHU) Varanasi</div>
+    </aside>
+
+    <!-- Form panel -->
+    <main class="panel">
+      <div class="panel-inner">
+        <div class="role-switch" role="tablist" aria-label="Account type">
+          <a href="?role=rider" data-role-link="rider"><svg class="ic ic-sm"><use href="#i-bike"/></svg>Rider</a>
+          <a href="?role=hospital" data-role-link="hospital"><svg class="ic ic-sm"><use href="#i-building"/></svg>Hospital</a>
+          <a href="?role=ambulance" data-role-link="ambulance"><svg class="ic ic-sm"><use href="#i-ambulance"/></svg>Ambulance</a>
+        </div>
+
+        <header class="panel-head">
+          <h2 id="formTitle">Welcome back</h2>
+          <p id="formSub">Sign in to continue.</p>
+        </header>
+
+        <div class="mode-tabs" role="tablist">
+          <button type="button" class="mode active" data-mode="login" role="tab">Sign in</button>
+          <button type="button" class="mode" data-mode="register" role="tab">Create account</button>
+        </div>
+
+        <div class="alert" id="formError" role="alert" hidden></div>
+
+        <!-- Sign in -->
+        <form id="loginForm" class="form" novalidate>
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input class="input" type="email" name="email" autocomplete="email" placeholder="you@example.com" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Password</span>
+            <span class="input-wrap">
+              <input class="input" type="password" name="password" autocomplete="current-password" placeholder="Your password" required />
+              <button type="button" class="reveal" data-reveal aria-label="Show password"><svg class="ic ic-sm"><use href="#i-eye"/></svg></button>
+            </span>
+          </label>
+          <button type="submit" class="btn btn-primary btn-block"><span>Sign in</span><svg class="ic ic-sm"><use href="#i-arrow"/></svg></button>
+
+          <div class="demo">
+            <div class="demo-label">Demo accounts <span>password <code>demo1234</code></span></div>
+            <div class="demo-list" id="demoList"></div>
+          </div>
+        </form>
+
+        <!-- Create account -->
+        <form id="registerForm" class="form" novalidate hidden>
+          <div class="section-label" data-only="hospital">Hospital</div>
+          <label class="field" data-only="hospital">
+            <span class="field-label">Hospital name</span>
+            <input class="input" name="hospital_name" placeholder="e.g. City Trauma & Multispeciality Hospital" />
+          </label>
+          <div class="field-row" data-only="hospital">
+            <label class="field">
+              <span class="field-label">Area / locality</span>
+              <input class="input" name="area" placeholder="e.g. Sigra" />
+            </label>
+            <label class="field">
+              <span class="field-label">City</span>
+              <input class="input" name="city" placeholder="e.g. Varanasi" />
+            </label>
+          </div>
+          <div class="field" data-only="hospital">
+            <span class="field-label">Emergency entrance location</span>
+            <div class="locate">
+              <button type="button" class="btn btn-secondary" id="btnLocate"><svg class="ic ic-sm"><use href="#i-pin"/></svg><span>Use my current location</span></button>
+              <span class="locate-status" id="locateStatus">Needed so crashes nearby are routed to you</span>
+            </div>
+            <div class="field-row compact">
+              <input class="input mono" name="latitude" inputmode="decimal" placeholder="Latitude" />
+              <input class="input mono" name="longitude" inputmode="decimal" placeholder="Longitude" />
+            </div>
+          </div>
+          <label class="field" data-only="hospital">
+            <span class="field-label">Trauma / ER beds available now</span>
+            <input class="input" name="er_beds" type="number" min="0" max="999" value="10" />
+          </label>
+
+          <div class="section-label" data-only="ambulance">Your unit</div>
+          <label class="field" data-only="ambulance">
+            <span class="field-label">Hospital</span>
+            <select class="input" name="hospital_id" id="hospitalSelect"><option value="">Loading hospitals…</option></select>
+          </label>
+          <div class="field-row" data-only="ambulance">
+            <label class="field">
+              <span class="field-label">Unit code</span>
+              <input class="input mono" name="unit_code" placeholder="ALS-04" />
+            </label>
+            <label class="field">
+              <span class="field-label">Vehicle number</span>
+              <input class="input mono" name="vehicle_number" placeholder="UP65 AT 1042" />
+            </label>
+          </div>
+          <div class="field" data-only="ambulance">
+            <span class="field-label">Unit type</span>
+            <div class="chips" data-chip-group="unit_type">
+              <button type="button" class="chip active" data-value="ALS">ALS · Advanced</button>
+              <button type="button" class="chip" data-value="BLS">BLS · Basic</button>
+              <button type="button" class="chip" data-value="TRAUMA">Trauma</button>
+            </div>
+          </div>
+
+          <div class="section-label" data-only="hospital ambulance">Your account</div>
+          <label class="field">
+            <span class="field-label" id="nameLabel">Full name</span>
+            <input class="input" name="name" autocomplete="name" placeholder="Your full name" />
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span class="field-label">Email</span>
+              <input class="input" type="email" name="email" autocomplete="email" placeholder="you@example.com" />
+            </label>
+            <label class="field">
+              <span class="field-label">Phone</span>
+              <input class="input" type="tel" name="phone" autocomplete="tel" placeholder="98765 43210" />
+            </label>
+          </div>
+          <label class="field">
+            <span class="field-label">Password</span>
+            <span class="input-wrap">
+              <input class="input" type="password" name="password" autocomplete="new-password" placeholder="At least 8 characters" />
+              <button type="button" class="reveal" data-reveal aria-label="Show password"><svg class="ic ic-sm"><use href="#i-eye"/></svg></button>
+            </span>
+          </label>
+
+          <button type="submit" class="btn btn-primary btn-block"><span id="registerLabel">Create account</span><svg class="ic ic-sm"><use href="#i-arrow"/></svg></button>
+          <p class="fine" data-only="rider">Next, we'll ask for your blood group and an emergency contact. That's what the ambulance crew sees first.</p>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/session.js?v=1"></script>
+  <script src="js/auth.js?v=1"></script>
+</body>
+</html>
