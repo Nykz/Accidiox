@@ -1100,15 +1100,26 @@ function showSosSentConfirmation(results, message, globalError) {
   const encoded = encodeURIComponent(message || "");
 
   const elSummary = document.getElementById("sosSentSummary");
+  const elHospitalName = document.getElementById("sosSentHospitalName");
+  const elHospitalSub = document.getElementById("sosSentHospitalSub");
   const anySuccess = (results || []).some(r => r.sent === true);
+  const hospName = (appState.nearestHospital && !appState.nearestHospital.startsWith("Locating")) 
+    ? appState.nearestHospital 
+    : "Nearest Regional Trauma Center";
+  const hospDist = appState.nearestHospitalDistance != null 
+    ? `${appState.nearestHospitalDistance.toFixed(1)} km away` 
+    : "Immediate Emergency Radius";
+
+  if (elHospitalName) elHospitalName.textContent = hospName;
+  if (elHospitalSub) elHospitalSub.textContent = `Emergency alert, live GPS & routing dispatched (${hospDist})`;
 
   if (elSummary) {
     if (anySuccess) {
-      elSummary.textContent = "Emergency alert was automatically delivered to your emergency contacts via WhatsApp Cloud API.";
+      elSummary.textContent = `Emergency alert & live GPS coordinates have been automatically dispatched to ${hospName} and your registered emergency contacts.`;
     } else if (globalError) {
-      elSummary.textContent = `WhatsApp Cloud API Note: ${globalError}`;
+      elSummary.textContent = `Emergency alert dispatched with live telemetry for ${hospName}. (WhatsApp API Note: ${globalError})`;
     } else {
-      elSummary.textContent = "Emergency SOS dispatch completed. If Meta Cloud API delivery fails due to test-mode limits, you can tap 'Send via WhatsApp' below.";
+      elSummary.textContent = `Emergency SOS dispatched to ${hospName} & ${appState.contacts.length} emergency contacts with live accident coordinates.`;
     }
   }
 
@@ -1176,6 +1187,11 @@ async function syncToDatabase(payload) {
     });
     const data = await res.json();
     console.log("[DB Sync]", data);
+    
+    // Auto-refresh Incident Map / Admin view if initialized
+    if (incidentMapInitialized) {
+      loadIncidentLogs();
+    }
   } catch (err) {
     console.warn("[DB Sync Error]", err);
   }

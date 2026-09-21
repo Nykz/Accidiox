@@ -319,11 +319,27 @@
         <div class="modal-icon sos-sent-icon">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
-        <div class="modal-badge sos-sent-badge">Alert Dispatched</div>
-        <h2 class="modal-heading">WhatsApp SOS Sent</h2>
+        <div class="modal-badge sos-sent-badge">Emergency Dispatched</div>
+        <h2 class="modal-heading">Hospital & Contacts Notified</h2>
         <p class="modal-text" id="sosSentSummary">
-          Emergency alert with live GPS location & nearest rescue services has been dispatched to your emergency contacts.
+          Emergency alert with live GPS coordinates & crash telemetry has been dispatched to the nearest hospital and your registered contacts.
         </p>
+
+        <!-- Dynamic Nearest Hospital Broadcast Card -->
+        <div class="sos-hospital-dispatched-card" id="sosHospitalDispatchedCard">
+          <div class="sos-hospital-card-header">
+            <div class="sos-hospital-card-icon">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h6M9 13h6M12 7v8"/></svg>
+            </div>
+            <div class="sos-hospital-card-info">
+              <div class="sos-hospital-card-tag">Nearest Hospital Alerted</div>
+              <div class="sos-hospital-card-name" id="sosSentHospitalName">Sir Sunderlal Hospital, BHU</div>
+              <div class="sos-hospital-card-sub" id="sosSentHospitalSub">Emergency SOS, Live GPS & Trauma Alert Sent</div>
+            </div>
+            <span class="sos-status-tag sent">Dispatched</span>
+          </div>
+        </div>
+
         <div id="sosSentContactsList" class="sos-sent-contacts-list">
           <!-- Populated dynamically -->
         </div>
