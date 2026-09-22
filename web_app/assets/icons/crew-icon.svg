@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff6b6f"/>
+      <stop offset="1" stop-color="#d42a31"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <!-- wheels -->
+    <circle cx="158" cy="352" r="50"/>
+    <circle cx="366" cy="352" r="50"/>
+    <!-- chassis: rear wheel -> carrier -> front wheel -->
+    <path d="M158 352 L204 290 H306 L366 352"/>
+    <!-- front fork + handlebar -->
+    <path d="M306 290 L330 222"/>
+    <path d="M314 216 H358"/>
+  </g>
+  <!-- fuel tank -->
+  <path d="M232 294 L248 254 Q252 246 262 246 H290 Q300 246 302 256 L310 294 Z" fill="#fff"/>
+  <!-- hubs -->
+  <circle cx="158" cy="352" r="11" fill="#fff"/>
+  <circle cx="366" cy="352" r="11" fill="#fff"/>
+  <!-- first-aid box sitting on the rear carrier -->
+  <rect x="104" y="182" width="126" height="100" rx="18" fill="#fff"/>
+  <rect x="153" y="200" width="28" height="64" rx="5" fill="#d42a31"/>
+  <rect x="135" y="218" width="64" height="28" rx="5" fill="#d42a31"/>
+  <!-- siren light -->
+  <rect x="152" y="158" width="30" height="18" rx="7" fill="#fff"/>
+</svg>

@@ -183,3 +183,4 @@ a { color: inherit; text-decoration: none; }
 @keyframes sweep { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+img.brand-mark { display: block; background: none; object-fit: cover; }

@@ -449,7 +449,8 @@
       try {
         new Notification(`New emergency · ${job.blood_group || ""} blood`, {
           body: `${job.rider_name || "Rider"} at ${job.location_name || "pinned location"}`,
-          icon: "assets/icons/icon-192.png",
+          icon: "assets/icons/crew-icon-192.png",
+          badge: "assets/icons/badge-96.png",
           tag: `job-${job.id}`
         });
       } catch (e) {}

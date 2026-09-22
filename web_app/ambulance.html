@@ -6,13 +6,13 @@
   <meta name="theme-color" content="#0a0c10" />
   <title>Accidiox Crew</title>
   <link rel="manifest" href="manifest-crew.json" />
-  <link rel="icon" type="image/png" href="assets/icons/icon-192.png" />
-  <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="assets/icons/crew-icon-192.png" />
+  <link rel="apple-touch-icon" href="assets/icons/crew-icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="css/ambulance.css?v=2" />
+  <link rel="stylesheet" href="css/ambulance.css?v=3" />
   <script src="js/session.js?v=2"></script>
 </head>
 <body>
@@ -36,7 +36,7 @@
 
   <div class="app">
     <header class="top">
-      <span class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></span>
+      <img class="brand-mark" src="assets/icons/crew-icon.svg" alt="Accidiox Crew" width="38" height="38" />
       <div class="top-id">
         <strong><span id="unitCode">—</span> <span class="type-tag" id="unitType">—</span></strong>
         <span id="hospitalName">Loading…</span>
@@ -117,7 +117,7 @@
   <div class="toast" id="toast" role="status" hidden></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="js/ambulance.js?v=3"></script>
+  <script src="js/ambulance.js?v=4"></script>
   <script>
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
   </script>

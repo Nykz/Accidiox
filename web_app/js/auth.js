@@ -77,6 +77,11 @@
   document.title = `${copy.loginTitle} · Accidiox`;
   document.querySelector('meta[name="theme-color"]').content = role === "rider" ? "#f1f2f5" : "#0a0c10";
   if (role !== "rider") document.querySelector('link[rel="manifest"]').remove();
+  if (role === "ambulance") {
+    // The crew app has its own icon: a motorbike carrying a first-aid kit.
+    document.querySelector('link[rel="icon"]').href = "assets/icons/crew-icon-192.png";
+    document.querySelector(".brand-mark").outerHTML = '<img class="brand-mark" src="assets/icons/crew-icon.svg" alt="" width="32" height="32" />';
+  }
   $("brandTag").textContent = copy.tag;
   $("storyTitle").textContent = copy.title;
   $("storyLead").textContent = copy.lead;
