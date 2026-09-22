@@ -793,7 +793,7 @@ function renderTimeline(inc) {
 // ----- Own fleet -----
 function renderFleet() {
   const list = $("fleetList");
-  if (!changed("fleet", [state.fleet.map((a) => [a.id, a.status, a.approved, a.crew_name, a.last_seen && Math.floor(parseTs(a.last_seen) / 60000)])])) return;
+  if (!changed("fleet", [state.fleet.map((a) => [a.id, a.status, a.approved, a.crew_name, a.current_incident_id, a.last_seen && Math.floor(parseTs(a.last_seen) / 60000)])])) return;
   const approved = state.fleet.filter((a) => a.approved);
   const pending = state.fleet.filter((a) => !a.approved);
   $("fleetCount").textContent = approved.length;
@@ -817,6 +817,9 @@ function renderFleet() {
           <span>${esc(a.crew_name || "Crew")} · ${a.approved ? statusText[a.status] || a.status : "Requested access"}${a.approved ? seen : ""}</span>
         </div>
         <div class="fleet-actions">
+          ${a.approved && a.status === "assigned"
+            ? `<button class="mini-btn ok" data-fleet="free" data-id="${a.id}" title="The case is over: put this unit back on duty">Case done</button>`
+            : ""}
           ${a.approved
             ? `<button class="mini-btn icon" data-fleet="remove" data-id="${a.id}" title="Remove unit">${icon("x", "ic ic-xs")}</button>`
             : `<button class="mini-btn" data-fleet="remove" data-id="${a.id}">Reject</button><button class="mini-btn ok" data-fleet="approve" data-id="${a.id}">Approve</button>`}
@@ -832,6 +835,13 @@ async function fleetAction(action, id) {
     const data = await postAction("approve_crew", { ambulance_id: id });
     if (data.status === "success") toast("success", `${unit.unit_code} approved`, `${unit.crew_name || "The crew"} can now go on duty and receive cases.`, "check");
     else toast("danger", "Couldn't approve", data.message || "Try again.", "alert");
+    return fetchDispatchData();
+  }
+  // The case is over but the unit is still flagged as busy.
+  if (action === "free") {
+    const data = await postAction("free_unit", { ambulance_id: id });
+    if (data.status === "success") toast("success", `${unit.unit_code} is free`, "It can be sent to the next emergency.", "check");
+    else toast("danger", "Still on a case", data.message || "Try again.", "alert");
     return fetchDispatchData();
   }
   const title = unit.approved ? `Remove ${unit.unit_code}?` : `Reject ${unit.unit_code}?`;

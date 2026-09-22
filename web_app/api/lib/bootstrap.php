@@ -541,6 +541,7 @@ const CANCEL_TREATMENT = ['clinic' => 'Treated at a nearby clinic / medical shop
 //     the alerted hospitals, so a victim is never stuck with a hospital
 //     that can't send anyone.
 function expire_stale_assignments($conn) {
+    free_stale_units($conn);
     $stale = db_all($conn, "SELECT i.id, i.ambulance_id, a.unit_code FROM incidents i LEFT JOIN ambulances a ON a.id = i.ambulance_id
                             WHERE i.assignment_status = 'PENDING' AND i.assigned_at < ?", [ts_ago(ASSIGN_ACCEPT_SECONDS)]);
     foreach ($stale as $s) {
@@ -559,6 +560,29 @@ function expire_stale_assignments($conn) {
             [now_ts(), (int) $o['id']]);
         if ($n === 1) add_event($conn, $o['id'], 'RELEASED', 'system', $o['claimed_by_hospital_id'], 'No ambulance accepted in 5 min · sent back to nearby hospitals');
     }
+}
+
+// Safety net for units left "on a case" after the case is over: the
+// incident was admitted, cancelled, deleted, or handed to another unit.
+// Runs on every hospital / crew / rider poll, so a stuck unit frees itself.
+function free_stale_units($conn) {
+    db_exec($conn, "UPDATE ambulances a LEFT JOIN incidents i ON i.id = a.current_incident_id
+                    SET a.status = IF(a.status = 'assigned', 'available', a.status), a.current_incident_id = NULL
+                    WHERE a.current_incident_id IS NOT NULL
+                      AND (i.id IS NULL OR i.ambulance_id <> a.id OR i.status IN ('ADMITTED', 'CANCELLED'))");
+}
+
+// Takes one unit off its case by hand (hospital console / crew app / owner
+// console). Only for a case that is already over; an unfinished rescue has
+// to be closed on the incident itself first.
+function free_unit($conn, $amb) {
+    $inc = empty($amb['current_incident_id']) ? null
+        : db_one($conn, "SELECT id, status FROM incidents WHERE id = ? AND ambulance_id = ?", [(int) $amb['current_incident_id'], (int) $amb['id']]);
+    if ($inc && !in_array($inc['status'], ['ADMITTED', 'CANCELLED'], true)) {
+        fail("{$amb['unit_code']} is still on an active case. Mark the patient admitted (or close the emergency) first.", 409);
+    }
+    db_exec($conn, "UPDATE ambulances SET status = IF(status = 'assigned', 'available', status), current_incident_id = NULL WHERE id = ?", [(int) $amb['id']]);
+    if ($inc) add_event($conn, (int) $inc['id'], 'RELEASED', 'system', $amb['unit_code'], "{$amb['unit_code']} marked free");
 }
 
 function release_assignment($conn, $incidentId, $ambulanceId, $reason, $actorType, $note) {

@@ -7,6 +7,7 @@
 //   POST ?action=update_status     { incident_id, new_status }    manual override, claiming hospital only
 //   POST ?action=update_capacity   { er_beds_free }
 //   POST ?action=approve_crew      { ambulance_id }
+//   POST ?action=free_unit        { ambulance_id }  case over, put the unit back on duty
 //   POST ?action=remove_unit       { ambulance_id }  reject a request or remove a unit
 require_once __DIR__ . '/lib/bootstrap.php';
 
@@ -179,6 +180,14 @@ if ($action === 'approve_crew') {
     if (!$amb) fail("Unit not found.", 404);
     db_exec($conn, "UPDATE ambulances SET approved = 1 WHERE id = ?", [(int) $amb['id']]);
     json_out(["status" => "success"]);
+}
+
+if ($action === 'free_unit') {
+    $in = read_json();
+    $amb = my_unit($conn, $hid, $in['ambulance_id'] ?? 0);
+    if (!$amb) fail("Unit not found.", 404);
+    free_unit($conn, $amb);
+    json_out(["status" => "success", "message" => "{$amb['unit_code']} is free for the next case."]);
 }
 
 if ($action === 'remove_unit') {

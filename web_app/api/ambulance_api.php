@@ -6,6 +6,7 @@
 //   POST ?action=location       { latitude, longitude, speed_kmh }
 //   POST ?action=accept         accept the pending dispatch (within 60 s)
 //   POST ?action=decline        hand it back to the hospital
+//   POST ?action=free_unit      case over, go back on duty
 //   POST ?action=update_status  { new_status: EN_ROUTE | AT_SCENE | PICKED_UP }
 require_once __DIR__ . '/lib/bootstrap.php';
 
@@ -108,6 +109,11 @@ if ($action === 'decline') {
     if (!release_assignment($conn, (int) $inc['id'], (int) $amb['id'], 'DECLINED', 'ambulance', "{$amb['unit_code']} declined")) {
         fail("You've already accepted this case.", 409);
     }
+    json_out(["status" => "success"]);
+}
+
+if ($action === 'free_unit') {
+    free_unit($conn, $amb);
     json_out(["status" => "success"]);
 }
 

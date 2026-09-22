@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="css/ambulance.css?v=4" />
+  <link rel="stylesheet" href="css/ambulance.css?v=5" />
   <script src="js/session.js?v=2"></script>
 </head>
 <body>
@@ -64,6 +64,7 @@
       <div class="radar"><span></span><span></span><svg class="ic"><use href="#i-radio"/></svg></div>
       <h1 id="idleTitle">You're off duty</h1>
       <p id="idleText">Switch on duty and keep this screen open. New emergencies will ring here.</p>
+      <button type="button" class="btn-free-unit" id="btnFreeUnit" hidden>Case finished · go back on duty</button>
       <div class="stats">
         <div><span>Completed today</span><strong id="statDone">0</strong></div>
         <div><span>Vehicle</span><strong id="statVehicle">—</strong></div>
@@ -117,7 +118,7 @@
   <div class="toast" id="toast" role="status" hidden></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="js/ambulance.js?v=6"></script>
+  <script src="js/ambulance.js?v=7"></script>
   <script>
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
   </script>

@@ -281,13 +281,32 @@
 
     if (!job) {
       clearMap();
-      $("idleTitle").textContent = state.onDuty ? "Waiting for dispatch" : "You're off duty";
-      $("idleText").textContent = state.onDuty
-        ? "Keep this screen open. When your hospital accepts a crash, it rings here with the patient's details."
-        : "Switch on duty and keep this screen open. New emergencies will ring here.";
+      // The unit still counts as "on a case" although the case is over
+      // (admitted, cancelled, or closed by support). One tap clears it.
+      const stuck = d.unit.status === "assigned";
+      $("btnFreeUnit").hidden = !stuck;
+      $("idleTitle").textContent = stuck ? "Last case is over" : state.onDuty ? "Waiting for dispatch" : "You're off duty";
+      $("idleText").textContent = stuck
+        ? "This unit is still marked as on a case. Tap below so your hospital can send you to the next emergency."
+        : state.onDuty
+          ? "Keep this screen open. When your hospital accepts a crash, it rings here with the patient's details."
+          : "Switch on duty and keep this screen open. New emergencies will ring here.";
       return;
     }
     renderJob(job);
+  }
+
+  async function freeUnit() {
+    const btn = $("btnFreeUnit");
+    btn.disabled = true;
+    try {
+      const { ok, data } = await S.api(ROLE, `${API}?action=free_unit`, { method: "POST", body: {} });
+      toast(ok ? "You're back on duty for the next case." : (data.message || "Couldn't update. Try again."));
+    } catch (e) {
+      toast("No connection. Try again in a moment.");
+    }
+    btn.disabled = false;
+    refresh();
   }
 
   function renderJob(job) {
@@ -486,6 +505,7 @@
 
     $("dutySwitch").addEventListener("click", () => setDuty(!state.onDuty));
     $("btnNext").addEventListener("click", advance);
+    $("btnFreeUnit").addEventListener("click", freeUnit);
     $("btnDecline").addEventListener("click", decline);
     $("jobBanner").addEventListener("click", stopRinging);
 

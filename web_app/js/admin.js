@@ -269,6 +269,7 @@
             <div><span>Last seen</span><strong>${c.last_seen ? esc(ago(c.last_seen)) : "Never"}</strong></div>
           </div>
           <div class="card-actions">
+            ${ok && c.status === "assigned" ? `<button class="btn btn-ghost" type="button" data-free="${c.id}">Case done · free unit</button>` : ""}
             ${ok
               ? `<button class="btn btn-danger" type="button" data-crew="${c.id}" data-v="0">Block</button>`
               : `<button class="btn btn-success" type="button" data-crew="${c.id}" data-v="1">Approve crew</button>`}
@@ -324,6 +325,16 @@
   document.addEventListener("click", async (e) => {
     const r = e.target.closest("[data-resolve]");
     if (r) return openResolve(+r.dataset.resolve);
+
+    // Unit left "on a case" after the case ended.
+    const f = e.target.closest("[data-free]");
+    if (f) {
+      f.disabled = true;
+      const { ok, data } = await api("free_unit", { ambulance_id: +f.dataset.free });
+      toast(ok ? "Unit is free for the next case." : (data.message || "Couldn't free this unit."), !ok);
+      if (!ok) f.disabled = false;
+      return load();
+    }
 
     const h = e.target.closest("[data-hosp]");
     const c = e.target.closest("[data-crew]");

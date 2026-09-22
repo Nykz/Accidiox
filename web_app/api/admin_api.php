@@ -10,6 +10,7 @@
 //   GET  ?action=overview           stats, open emergencies, hospitals, crews
 //   POST ?action=resolve_incident   { incident_id, condition, treatment, note }
 //   POST ?action=set_hospital       { hospital_id, verified: true|false }
+//   POST ?action=free_unit          { ambulance_id }  case over, put the unit back on duty
 //   POST ?action=set_crew           { ambulance_id, approved: true|false }
 require_once __DIR__ . '/lib/bootstrap.php';
 
@@ -168,6 +169,14 @@ if ($action === 'set_hospital') {
     $v = !empty($in['verified']) ? 1 : 0;
     if (!db_one($conn, "SELECT id FROM hospitals WHERE id = ?", [$hid])) fail("Hospital not found.", 404);
     db_exec($conn, "UPDATE hospitals SET verified = ? WHERE id = ?", [$v, $hid]);
+    json_out(["status" => "success"]);
+}
+
+if ($action === 'free_unit') {
+    $in = read_json();
+    $amb = db_one($conn, "SELECT * FROM ambulances WHERE id = ?", [(int) ($in['ambulance_id'] ?? 0)]);
+    if (!$amb) fail("Ambulance not found.", 404);
+    free_unit($conn, $amb);
     json_out(["status" => "success"]);
 }
 

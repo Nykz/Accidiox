@@ -190,3 +190,16 @@ img.brand-mark { display: block; background: none; object-fit: cover; }
 html, body { overscroll-behavior: none; }
 body { -webkit-touch-callout: none; }
 input, textarea { -webkit-user-select: text; user-select: text; }
+
+/* Recovery button: the case is over but the unit still shows "on a case". */
+.btn-free-unit {
+  margin: 4px auto 0;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #16a34a;
+  color: #fff;
+  font: 600 14px/1.2 inherit;
+  cursor: pointer;
+}
+.btn-free-unit[hidden] { display: none; }
