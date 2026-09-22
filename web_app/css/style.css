@@ -1166,7 +1166,7 @@ body {
   z-index: 9999;
   justify-content: center;
   align-items: center;
-  padding: 20px;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
 }
 
 .modal-overlay.show {
@@ -1182,7 +1182,31 @@ body {
   max-width: 380px;
   text-align: center;
   box-shadow: var(--shadow-3);
+  /* Always fits the phone screen; long content scrolls inside the box. */
+  position: relative;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bg-card-alt);
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1;
+}
+.modal-close .icon { width: 18px; height: 18px; }
 
 .modal-icon {
   width: 60px;
@@ -1768,56 +1792,6 @@ body {
 .btn-manual-whatsapp:hover {
   background: #1ebc57;
 }
-
-/* Direct Emergency Hotline Calling Actions */
-.sos-emergency-call-actions {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
-  margin: 12px 0;
-  width: 100%;
-}
-
-.btn-emergency-call {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 48px;
-  padding: 12px 10px;
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-  min-width: 0;
-  text-decoration: none;
-  color: #ffffff;
-  box-shadow: var(--shadow-1);
-}
-
-.btn-emergency-call.ambulance {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
-}
-
-.btn-emergency-call.police {
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-}
-
-.btn-emergency-call.hospital {
-  background: linear-gradient(135deg, #059669, #047857);
-}
-
-.btn-emergency-call[hidden] { display: none; }
-.btn-emergency-call span { overflow: hidden; text-overflow: ellipsis; }
-
-.btn-emergency-call .icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-
-
-
 
 /* ============== Rider account: profile card (Settings) ============== */
 .profile-card { display: flex; flex-direction: column; gap: 14px; }

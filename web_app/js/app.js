@@ -140,9 +140,10 @@ document.addEventListener("DOMContentLoaded", () => {
   elBtnCancelSos.addEventListener("click", () => cancelEmergency());
 
   if (elBtnDismissSosSent && elSosSentModal) {
-    elBtnDismissSosSent.addEventListener("click", () => {
-      elSosSentModal.classList.remove("show");
-    });
+    const closeSosSent = () => elSosSentModal.classList.remove("show");
+    elBtnDismissSosSent.addEventListener("click", closeSosSent);
+    const elBtnCloseSosSent = document.getElementById("btnCloseSosSent");
+    if (elBtnCloseSosSent) elBtnCloseSosSent.addEventListener("click", closeSosSent);
   }
 
   loadContacts();
@@ -1277,24 +1278,7 @@ function showSosSentConfirmation(results, message, globalError) {
     elSosSentContactsList.appendChild(item);
   });
 
-  // Only offer a hospital call when we know a real hospital and its number
-  // (108 already covers the rest). Once a hospital accepts the emergency,
-  // rider_account.js switches this button to that hospital.
-  const hospitalPhone = String(appState.nearestHospitalPhone || "").replace(/[^\d+]/g, "");
-  setHospitalCallButton(hospFound && hospitalPhone ? hospName : null, hospitalPhone);
-
   elSosSentModal.classList.add("show");
-}
-
-function setHospitalCallButton(name, phone) {
-  const btn = document.getElementById("btnCallNearestHospital");
-  const label = document.getElementById("labelCallNearestHospital");
-  if (!btn) return;
-  const digits = String(phone || "").replace(/[^\d+]/g, "");
-  if (!name || digits.length < 6) { btn.hidden = true; return; }
-  btn.href = `tel:${digits}`;
-  if (label) label.textContent = `Call ${name}`;
-  btn.hidden = false;
 }
 
 // 8. Database Sync
