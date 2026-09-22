@@ -33,6 +33,7 @@ web_app/api/geoapify_config.php
 # commit the keystore or its password, or anyone could sign a fake "update"
 # to this app using our identity. Keep these files only on your own machine.
 /apk_package/
+/apk_package_crew/
 /*.apk
 /*.aab
 /Accidiox - Google Play package.zip
