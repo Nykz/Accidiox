@@ -1,8 +1,18 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.codingtechnyks.accidiox.twa",
-        "sha256_cert_fingerprints": ["61:92:B3:BF:59:B7:C3:18:E8:0E:FA:34:76:90:4D:C3:FD:6E:D0:B6:90:B6:D7:4F:9B:81:95:DB:E6:14:BF:B0"]
-      }
-    }]
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.codingtechnyks.accidiox.twa",
+      "sha256_cert_fingerprints": ["61:92:B3:BF:59:B7:C3:18:E8:0E:FA:34:76:90:4D:C3:FD:6E:D0:B6:90:B6:D7:4F:9B:81:95:DB:E6:14:BF:B0"]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.codingtechnyks.accidiox.crew",
+      "sha256_cert_fingerprints": ["18:B3:FC:61:50:A3:CE:45:B8:02:44:39:0E:86:E0:EE:D8:BF:91:4C:A4:4B:F8:FB:40:14:1B:38:A2:99:5F:23"]
+    }
+  }
+]
