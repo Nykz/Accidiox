@@ -2,10 +2,10 @@
 
 KAYA Buildathon, IIT (BHU) Varanasi · Prepared 23 September 2026
 
-This guide covers four things: how to fill the submission form, how to
-structure the rest of the demo video, the lines that win judges over, and an
-honest list of strengths, limits and future scope so no question catches you
-off guard.
+This guide covers five things: how to fill the submission form, how to
+structure the rest of the demo video, the lines that win judges over, who
+actually pays for Accidiox, and an honest list of strengths, limits and
+future scope so no question catches you off guard.
 
 > Say the product name slowly the first time: **Ac-ci-di-ox** (Accident +
 > Dios). Judges must be able to search it later.
@@ -51,27 +51,37 @@ file `Accidiox_KAYA_2026_Deck.pdf`.
 
 ## 2. The video, part by part
 
-Target length: **4 minutes**. You have already shot Part 1 and Part 2.
+Target length: **6 to 7 minutes**; aim to finish at **6:30** so you have
+slack. You have already shot Part 1 and Part 2.
 
-**Part 1 · The problem — 0:00 to 0:35 (done)**
+A longer video is not permission to talk more. It is permission to let the
+demo breathe: the crash, the hospital screen and the crew phone in real time,
+uncut. Judges watch a lot of videos — the ones that win are the ones where
+something real happens on screen.
+
+**Part 1 · The problem — 0:00 to 0:50 (done)**
 Keep it to three facts and one human line. Ending suggestion, if you re-record:
 "The crash is not what kills most riders. The wait does."
 
-**Part 2 · The product — 0:35 to 0:50 (done)**
+**Part 2 · The product — 0:50 to 1:10 (done)**
 One sentence of what it is, said plainly:
 "Accidiox is a black box for two-wheelers. It detects the crash, and it
 brings the ambulance — automatically."
 
-**Part 3 · The hardware — 0:50 to 1:20**
-Show the device in your hand, then on the bike.
+**Part 3 · The hardware — 1:10 to 2:00**
+Show the device in your hand, then mounted on the bike, then the wiring.
 Say: "An ESP32 with an MPU-6050 sensor sits under the seat. It reads the
 bike's angle 100 times a second and talks to the rider's phone over
-Bluetooth. Parts cost under ₹1,200."
-Show the rider app's live screen: speed, lean angle, connection status.
+Bluetooth. Parts cost under ₹1,200, and it fits any bike, not just a new one."
+Show the rider app's live screen: speed, lean angle, connection status. With
+the extra time, name the detection rule out loud: "A tilt has to hold for ten
+straight seconds before we believe it's a crash."
 
-**Part 4 · The crash demo — 1:20 to 2:20 · this is the film**
+**Part 4 · The crash demo — 2:00 to 3:20 · this is the film**
 Shoot it in one unbroken take if you can. Judges trust one long take far more
-than five cuts.
+than five cuts. With 6–7 minutes you can afford to run the full 20-second
+countdown in real time instead of cutting it — do that, it is the most
+convincing 20 seconds in the video.
 
 1. Bike upright, app showing live data. Drop the bike.
 2. The phone screen: the 20-second countdown, the siren, "I'm safe" button.
@@ -80,7 +90,7 @@ than five cuts.
 4. Cut to the family member's phone: WhatsApp message with the live location
    arriving, and the phone ringing with the automatic voice call.
 
-**Part 5 · The rescue chain — 2:20 to 3:20**
+**Part 5 · The rescue chain — 3:20 to 4:40**
 Have the hospital console open on a laptop beside you, already signed in.
 
 1. The new emergency appears on the hospital console with the patient's name,
@@ -95,7 +105,7 @@ Have the hospital console open on a laptop beside you, already signed in.
 4. Back to the rider's phone: "Help is on the way", the ambulance moving on
    the map, and the ETA counting down.
 
-**Part 6 · The safety valves — 3:20 to 3:40**
+**Part 6 · The safety valves — 4:40 to 5:20**
 This is where you show judgement, not just code.
 
 - The rider taps "I'm safe" and answers two questions. The ambulance is freed
@@ -103,18 +113,31 @@ This is where you show judgement, not just code.
 - If the rider is hurt and untreated, the app refuses to cancel. Say that out
   loud; judges remember it.
 - The owner console: if a rider never responds, your support team calls them,
-  and marks the case closed everywhere.
+  and marks the case closed everywhere — it disappears from the hospital and
+  crew screens while you watch.
 
-**Part 7 · Close — 3:40 to 4:00**
-"Accidiox is live today at accidiox.codingtechnyks.com, with three installable
-apps and working hardware. We are not asking what if. We are asking which
-hospital signs up first."
+**Part 7 · Who pays — 5:20 to 6:00**
+One slide, four lines, no more. Details are in section 5 of this guide.
+Say: "Hospitals never pay — they're the supply side, and the console is free
+forever. Riders buy the box for about two thousand rupees. Delivery fleets
+buy it by the hundred, because a rider down is their liability. And once
+we're carrying verified crash data, insurers pay for it."
+
+**Part 8 · Future scope — 6:00 to 6:20**
+Exactly three: the phone-free 4G box, crash severity so the hospital knows
+whether to send basic or advanced life support, and the hospital network city
+by city. Ten ideas sounds like you haven't chosen one.
+
+**Part 9 · Close — 6:20 to 6:30**
+"Accidiox is live today at accidiox.codingtechnyks.com, with four apps,
+working hardware, and a signed APK. We are not asking what if. We are asking
+which hospital signs up first."
 
 **Answering your question — explain during, or after?**
 Explain **during** the demo, in one line per screen, then stop talking. A
-separate explanation section after the demo makes the video feel twice as
-long. The only thing that belongs after the demo is the close and the future
-scope, which is Part 7.
+separate explanation block after the demo makes the video drag, even at seven
+minutes. What belongs after the demo is only this: who pays, what's next, and
+the close.
 
 ---
 
@@ -165,7 +188,99 @@ Android apps, a signed APK, and hardware on a real bike."
 
 ---
 
-## 5. The gap you are filling
+## 5. Who pays — the business model
+
+The question judges always ask is "who actually buys this?" The answer that
+works is: **hospitals never pay, riders and fleets buy the box, insurers pay
+for the data later.** Here is why, and in what order.
+
+**The rule that makes it work**
+
+Accidiox is a two-sided network: riders on one side, hospitals with
+ambulances on the other. You must never charge the side you are short of.
+You are short of hospitals. So the hospital console is free, forever, and
+you say that sentence out loud in the pitch.
+
+**Buyer 1 · Delivery fleets — start here**
+
+Swiggy, Zomato, Zepto, Blinkit, Amazon and every local logistics company run
+thousands of two-wheelers all day. A rider down is their operational and
+legal problem, and they already pay for insurance on those riders.
+
+- They buy in hundreds, so one signature equals a thousand devices.
+- They have a safety budget already, and a compliance reason to spend it.
+- They give you dense city coverage fast, which is what makes the hospital
+  side worth joining.
+- Pitch to them as fleet safety, not charity: fewer rider-down incidents that
+  turn into disputes, and a dashboard of where their riders crash.
+
+Price it as a device plus a per-rider monthly fee. Indicative, to be
+validated: about **₹2,000 per device** and **₹40 to ₹60 per rider per
+month**. Present those as your working numbers, not as proven ones.
+
+**Buyer 2 · Individual riders**
+
+Sold through bike accessory shops, service centres and online. One-time
+**₹1,999 to ₹2,499** for the box, with the app free for the first year and
+about **₹499 a year** after that, which covers the WhatsApp, call and map
+costs per alert.
+
+Be realistic in the pitch: individual sales are slow and marketing-heavy.
+They matter for the story and for the network's edges, but fleets are what
+pay the bills in year one.
+
+**Buyer 3 · Insurance companies — the real long-term revenue**
+
+Motor insurers lose money on fraudulent and inflated two-wheeler claims, and
+they have no ground truth about what happened. Accidiox has the one thing
+they can't buy: **verified crash telemetry with a timestamp, a location and a
+hospital record.**
+
+- Sell verified crash reports per claim, or a data subscription.
+- Co-sell the device: an insurer bundles Accidiox with a policy and offers a
+  premium discount to riders who fit one, the way car telematics discounts
+  already work abroad.
+- This is a year-two conversation. Say "later" in the pitch. Judges punish
+  founders who promise insurance deals they haven't started.
+
+**Buyer 4 · Bike makers and dealers**
+
+An accessory a dealer fits at delivery, or a factory-fit option on commuter
+bikes. Highest volume, slowest to close, so treat it as the year-three door,
+not the plan.
+
+**Who never pays**
+
+- **Hospitals.** Free console, free crew app, free forever. They bring
+  ambulances and they bring patients; that is their contribution.
+- **The rider's family.** Nothing, ever. They are the person receiving the
+  worst call of their life.
+
+**What it costs you to run**
+
+Each alert sends a WhatsApp message, one automatic voice call, an email and
+some map lookups — paise per alert on today's rates, not rupees, and a crash
+is a rare event per rider. Verify the exact per-message rates with Twilio and
+Meta before you put a number on a slide. Hosting is a shared PHP/MySQL plan.
+The honest summary: the running cost per rider per year is small compared to
+a ₹499 subscription, and the device is sold near cost to get volume.
+
+**Say this in the pitch**
+
+"We don't sell software to hospitals. We give it to them, because they bring
+the ambulances. We sell the box to riders and to the delivery fleets who
+can't afford a rider to go missing — and once we're carrying verified crash
+data, insurers pay for that too."
+
+**Your first three business steps after the hackathon**
+
+1. One signed pilot hospital in Guwahati, free, with the console live.
+2. One local delivery fleet, 50 devices, three months, measured.
+3. One insurer conversation, listening only, no promises.
+
+---
+
+## 6. The gap you are filling
 
 Be precise here; judges test this question.
 
@@ -199,7 +314,7 @@ dispatch network that the sensor plugs into."
 
 ---
 
-## 6. Strengths — say these
+## 7. Strengths — say these
 
 - **End-to-end and live.** Hardware, rider app, hospital console, crew app,
   owner console, all deployed and working together today.
@@ -219,7 +334,7 @@ dispatch network that the sensor plugs into."
 
 ---
 
-## 7. Honest limits — and how to answer them
+## 8. Honest limits — and how to answer them
 
 Never hide these. Say the limit, then the answer, in the same breath.
 
@@ -261,7 +376,7 @@ list depends on map data quality in smaller towns.
 
 ---
 
-## 8. Future scope
+## 9. Future scope
 
 Say three, not ten. Ten sounds like you haven't chosen.
 
@@ -280,7 +395,7 @@ for verified crash data and faster claims. Say "later"; do not oversell it.
 
 ---
 
-## 9. Likely judge questions
+## 10. Likely judge questions
 
 - **"What's yours and what's a library?"** Yours: the detection algorithm,
   the entire dispatch protocol, three apps, the backend. Libraries: Leaflet
@@ -292,6 +407,9 @@ for verified crash data and faster claims. Say "later"; do not oversell it.
   actually crashes.
 - **"What happens on a false alarm?"** Show the cancel flow, then the owner
   console. This answer has already been built; make sure you show it.
+- **"Who pays, and who never pays?"** Hospitals never pay. Riders and
+  delivery fleets buy the box; insurers pay for verified crash data later.
+  Section 5 has the numbers.
 - **"What did you build during the hackathon versus before?"** Answer
   plainly. Judges check GitHub commit dates.
 - **"Who's on the team and who did what?"** Have a one-line answer per
@@ -299,7 +417,7 @@ for verified crash data and faster claims. Say "later"; do not oversell it.
 
 ---
 
-## 10. Do and don't
+## 11. Do and don't
 
 **Do**
 
