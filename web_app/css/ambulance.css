@@ -184,3 +184,9 @@ a { color: inherit; text-decoration: none; }
 @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
 img.brand-mark { display: block; background: none; object-fit: cover; }
+
+/* Native-app feel: no pull-to-refresh (it reloaded the app and dropped
+   GPS / the current case), no rubber-band bounce, no long-press menus. */
+html, body { overscroll-behavior: none; }
+body { -webkit-touch-callout: none; }
+input, textarea { -webkit-user-select: text; user-select: text; }

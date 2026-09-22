@@ -9,6 +9,9 @@
   if (!user) return;
 
   const API = "api/ambulance_api.php";
+  // Last server state, so a reload redraws the same screen instantly
+  // (like reopening a native app) before the fresh data arrives.
+  const CACHE_KEY = `accidiox.crew.lastState.${user.id}`;
   const POLL_MS = 4000;
   const SEND_EVERY_MS = 5000;
 
@@ -210,9 +213,11 @@
     try {
       const { ok, data } = await S.api(ROLE, `${API}?action=me`);
       if (!ok) return;
-      const firstLoad = !state.data;
+      const firstLoad = !state.data || state.fromCache;
       state.data = data;
+      state.fromCache = false;
       state.fetchedAt = Date.now();
+      try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (e) {}
       if (firstLoad) {
         state.onDuty = data.unit.status !== "offline";
         if (state.onDuty) startGps();
@@ -494,6 +499,19 @@
       S.logout(ROLE);
     });
 
+    // Paint the last known screen immediately, then refresh from the server.
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null");
+      if (cached && cached.unit) {
+        state.data = cached;
+        state.fromCache = true;
+        state.fetchedAt = Date.now();
+        state.onDuty = cached.unit.status !== "offline";
+        state.seenAssignment = cached.assignment ? `${cached.assignment.id}|${cached.assignment.assigned_at}` : null;
+        state.hadAssignment = cached.assignment ? cached.assignment.assignment_status : false;
+        render();
+      }
+    } catch (e) {}
     refresh();
     setInterval(refresh, POLL_MS);
     setInterval(() => {

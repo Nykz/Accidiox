@@ -37,7 +37,24 @@
     form.full_name.value = user.name || "";
     form.phone.value = String(user.phone || "").replace(/^91(?=\d{10}$)/, "");
   }
-  if (editing) {
+  // Survive a reload like an app: restore the step and everything typed so
+  // far in this session (the saved profile below still wins when editing).
+  const DRAFT_KEY = `accidiox.rider.onboardingDraft.${user.id}`;
+  let draft = {};
+  try { draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}"); } catch (e) {}
+  function saveDraft() {
+    const fields = {};
+    form.querySelectorAll("input[name]").forEach((i) => { fields[i.name] = i.value; });
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ step, fields, chips })); } catch (e) {}
+  }
+  if (draft.fields) {
+    Object.entries(draft.fields).forEach(([k, v]) => { if (form[k] && v) form[k].value = v; });
+    Object.entries(draft.chips || {}).forEach(([k, v]) => setChip(k, v));
+  }
+  form.addEventListener("input", saveDraft);
+  form.addEventListener("click", (e) => { if (e.target.closest("[data-value]")) setTimeout(saveDraft, 0); });
+
+  if (editing && !draft.fields) {
     S.api("rider", "api/rider.php?action=profile").then(({ ok, data }) => { if (ok) fill(data.profile); }).catch(() => {});
   }
 
@@ -53,6 +70,7 @@
     error(null);
     if (n === TOTAL) renderSummary();
     window.scrollTo(0, 0);
+    saveDraft();
   }
 
   function error(msg, field) {
@@ -147,6 +165,7 @@
   }
 
   function finish() {
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch (e) {}
     document.querySelector(".ob-top").style.visibility = "hidden";
     form.innerHTML = `
       <section class="step done">
@@ -159,5 +178,5 @@
       <footer class="ob-actions"><a class="btn btn-primary" href="index.html"><span>${editing ? "Back to app" : "Open my dashboard"}</span></a></footer>`;
   }
 
-  show(1);
+  show(draft.step >= 1 && draft.step <= TOTAL ? draft.step : 1);
 })();

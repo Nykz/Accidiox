@@ -91,6 +91,27 @@
     if (!el.dataset.only.split(" ").includes(role)) el.remove();
   });
   if (copy.nameLabel) $("nameLabel").textContent = copy.nameLabel;
+
+  // Inside the rider and crew apps, Chrome must not behave like a browser:
+  // no "Save password?" bar and no saved-password / autofill dropdowns.
+  // Chrome's password manager only watches type=password fields, so these
+  // become masked text fields (still shown as dots). The hospital console
+  // runs in a normal desktop browser and keeps standard fields.
+  if (role !== "hospital") {
+    document.querySelectorAll("form input").forEach((i) => {
+      if (i.type === "password") {
+        i.type = "text";
+        i.classList.add("secret");
+        i.dataset.secret = "1";
+      }
+      i.setAttribute("autocomplete", "off");
+      if (i.dataset.secret || i.type === "email") {
+        i.setAttribute("autocorrect", "off");
+        i.setAttribute("autocapitalize", "off");
+        i.spellcheck = false;
+      }
+    });
+  }
   $("registerLabel").textContent = copy.registerCta;
 
   // ----- Modes: login | register | forgot | reset -----
@@ -124,7 +145,27 @@
     $("forgotNotice").hidden = true;
     setMode("login");
   }));
-  setMode(resetToken ? "reset" : params.get("mode") === "register" ? "register" : "login");
+  // Survive a reload like an app does: remember the open tab and what was
+  // typed (never passwords) for this session only.
+  const DRAFT_KEY = `accidiox.${role}.authDraft`;
+  function loadDraft() {
+    try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}"); } catch (e) { return {}; }
+  }
+  function saveDraft(patch) {
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(Object.assign(loadDraft(), patch))); } catch (e) {}
+  }
+  const draft = loadDraft();
+  Object.values(FORMS).forEach((id) => {
+    const form = $(id);
+    form.querySelectorAll("input:not([data-secret]):not([type=password]), select").forEach((el) => {
+      const key = `${id}.${el.name}`;
+      if (draft.fields && draft.fields[key] != null && el.name) el.value = draft.fields[key];
+      el.addEventListener("input", () => saveDraft({ fields: Object.assign(loadDraft().fields || {}, { [key]: el.value }) }));
+    });
+  });
+  const _setMode = setMode;
+  setMode = (m) => { _setMode(m); if (m !== "reset") saveDraft({ mode: m }); };
+  setMode(resetToken ? "reset" : params.get("mode") === "register" ? "register" : ["login", "register", "forgot"].includes(draft.mode) ? draft.mode : "login");
 
   // ----- Helpers -----
   function currentForm() {
@@ -155,6 +196,7 @@
   }
 
   function afterAuth(data) {
+    try { sessionStorage.removeItem(`accidiox.${role}.authDraft`); } catch (e) {}
     S.save(role, data.token, data.user);
     if (role === "rider" && !data.user.onboarded) location.replace("onboarding.html");
     else location.replace(nextUrl());
@@ -172,7 +214,8 @@
 
   document.querySelectorAll("[data-reveal]").forEach((b) => b.addEventListener("click", () => {
     const input = b.parentElement.querySelector("input");
-    input.type = input.type === "password" ? "text" : "password";
+    if (input.dataset.secret) input.classList.toggle("secret");
+    else input.type = input.type === "password" ? "text" : "password";
   }));
 
   document.querySelectorAll("[data-chip-group]").forEach((group) => {
