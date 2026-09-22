@@ -1175,8 +1175,11 @@ async function triggerAutomatedVoiceCall(payload) {
     });
     const data = await res.json();
     console.log("[Automated Voice Call Dispatch]", data);
+    // Show on the "SOS sent" screen whether the family call went through.
+    if (window.AccidioxRider) window.AccidioxRider.showCallResults(data);
   } catch (err) {
     console.warn("[Automated Voice Call Dispatch Error]", err);
+    if (window.AccidioxRider) window.AccidioxRider.showCallResults({ message: "no connection to the server" });
   }
 }
 

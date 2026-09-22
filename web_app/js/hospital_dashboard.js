@@ -26,6 +26,7 @@ const EVENT_TEXT = {
   NO_RESPONSE: "Crew didn't respond",
   RELEASED: "Case returned to nearby hospitals",
   CANCELLED: "Rider cancelled: reported safe",
+  CALLED: "Family emergency call",
   EN_ROUTE: "Ambulance en route",
   AT_SCENE: "Ambulance on scene",
   PICKED_UP: "Patient picked up",

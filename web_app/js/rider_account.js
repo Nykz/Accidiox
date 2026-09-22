@@ -92,13 +92,64 @@
         ${rows.map(([k, v]) => `<div class="profile-row"><span>${k}</span><strong>${esc(v)}</strong></div>`).join("")}
       </div>
       <p class="profile-note">Shared with the responding hospital and ambulance only when a crash is confirmed.</p>
+      <button class="test-call-btn" type="button" id="btnTestCall">${svg(ICON.phone)}<span>Test emergency call to ${esc(p.emergency_name || "my contact")}</span></button>
+      <div class="test-call-result" id="testCallResult" hidden></div>
       <div class="profile-actions">
         <a class="btn btn-secondary" href="onboarding.html?edit=1">${svg(ICON.edit)}<span>Edit medical profile</span></a>
         <button class="btn btn-danger-outline" type="button" id="btnSignOut">${svg(ICON.out)}<span>Sign out</span></button>
       </div>`;
+    $("btnTestCall").addEventListener("click", testCall);
     $("btnSignOut").addEventListener("click", () => {
       if (confirm("Sign out of Accidiox? Crash alerts won't reach hospitals until you sign in again.")) S.logout("rider");
     });
+  }
+
+  // Rings the emergency contact with a clearly-labelled test message, so the
+  // rider (or admin) can confirm calls work without faking a crash.
+  async function testCall() {
+    const btn = $("btnTestCall");
+    const out = $("testCallResult");
+    const p = profile() || {};
+    if (!confirm(`Place a real test call to ${p.emergency_name || "your emergency contact"} now? They'll hear a short message saying it's only a test.`)) return;
+    btn.disabled = true;
+    out.hidden = false;
+    out.className = "test-call-result";
+    out.textContent = "Placing the call…";
+    try {
+      const { ok, data } = await S.api("rider", "api/rider.php?action=test_call", { method: "POST", body: {} });
+      out.className = `test-call-result ${ok ? "ok" : "bad"}`;
+      out.textContent = ok
+        ? `Calling ${data.name} (${data.phone}). Their phone should ring in a few seconds.`
+        : `The call didn't go through. ${data.message || ""}`;
+    } catch (e) {
+      out.className = "test-call-result bad";
+      out.textContent = "No connection. Try again when you're online.";
+    }
+    btn.disabled = false;
+  }
+
+  // Shows whether the automatic emergency call reached each contact, on the
+  // "SOS sent" screen (called from app.js once Twilio answers).
+  function showCallResults(data) {
+    const modal = $("sosSentModal");
+    if (!modal) return;
+    let box = $("sosCallResults");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "sosCallResults";
+      box.className = "sos-call-results";
+      const anchor = $("sosSentContactsList");
+      anchor.parentNode.insertBefore(box, anchor);
+    }
+    const rows = (data && data.results) || [];
+    if (!rows.length) {
+      box.innerHTML = `<div class="sos-call-row bad">${svg(ICON.phone)}<span>Automatic call not placed: ${esc((data && data.message) || "voice calls aren't set up")}</span></div>`;
+      return;
+    }
+    box.innerHTML = rows.map((r) => `
+      <div class="sos-call-row ${r.called ? "ok" : "bad"}">${svg(ICON.phone)}
+        <span><strong>${esc(r.name)}</strong> ${r.called ? "is being called now" : `couldn't be called: ${esc(r.detail)}`}</span>
+      </div>`).join("");
   }
 
   // Keeps the profile's emergency contact at the top of the SOS list.
@@ -134,7 +185,7 @@
     const statusText = { UNCLAIMED: ["Finding help", "open"], HOSPITAL: ["Assigning ambulance", "moving"], COMING: ["Ambulance coming", "moving"],
       EN_ROUTE: ["Ambulance coming", "moving"], AT_SCENE: ["Ambulance arrived", "moving"], PICKED_UP: ["To hospital", "moving"], ADMITTED: ["Admitted", ""], CANCELLED: ["Cancelled · safe", ""] };
     const labels = { REPORTED: "Crash detected", ALERTED: "Nearest hospitals alerted", DISPATCHED: "Hospital accepted", ACCEPTED: "Ambulance crew accepted",
-      EN_ROUTE: "Ambulance on the way", AT_SCENE: "Ambulance arrived", PICKED_UP: "Picked up", ADMITTED: "Admitted", CANCELLED: "You cancelled: you were safe" };
+      EN_ROUTE: "Ambulance on the way", AT_SCENE: "Ambulance arrived", PICKED_UP: "Picked up", ADMITTED: "Admitted", CANCELLED: "You cancelled: you were safe", CALLED: "Emergency contact called" };
 
     list.innerHTML = items.slice(0, historyLimit).map((inc) => {
       const phase = phaseOf(inc);
@@ -540,7 +591,7 @@
   }
 
   // ================= Boot =================
-  window.AccidioxRider = { trackIncident, mergeProfileContact };
+  window.AccidioxRider = { trackIncident, mergeProfileContact, showCallResults };
 
   document.addEventListener("DOMContentLoaded", () => {
     renderProfileCard();

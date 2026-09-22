@@ -1993,3 +1993,22 @@ body {
 .safe-actions .btn { padding: 13px 12px; }
 .btn-danger-solid { background: var(--danger); color: #fff; border: 0; }
 .btn-danger-solid:disabled { opacity: .45; }
+
+/* ============== Emergency call: test + result ============== */
+.test-call-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  padding: 11px 14px; border-radius: var(--radius-md); cursor: pointer;
+  border: 1.5px dashed var(--outline-strong); background: var(--bg-card-alt); color: var(--text-main);
+  font-size: 13.5px; font-weight: 700;
+}
+.test-call-btn .icon { width: 17px; height: 17px; color: var(--success); }
+.test-call-btn:disabled { opacity: .6; }
+.test-call-result { font-size: 13px; line-height: 1.5; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--bg-card-alt); color: var(--text-sub); }
+.test-call-result.ok { background: var(--success-tint); color: var(--success); }
+.test-call-result.bad { background: var(--danger-tint); color: var(--danger); }
+
+.sos-call-results { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; text-align: left; }
+.sos-call-row { display: flex; gap: 8px; align-items: flex-start; padding: 9px 11px; border-radius: var(--radius-sm); font-size: 13px; line-height: 1.45; }
+.sos-call-row .icon { width: 16px; height: 16px; flex-shrink: 0; margin-top: 2px; }
+.sos-call-row.ok { background: var(--success-tint); color: var(--success); }
+.sos-call-row.bad { background: var(--danger-tint); color: var(--danger); }

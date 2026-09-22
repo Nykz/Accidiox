@@ -102,6 +102,38 @@ if ($action === 'cancel_incident') {
     json_out(["status" => "success", "incident" => rider_view(incident_payload($conn, $row))]);
 }
 
+// "Test emergency call" from Settings: rings the rider's primary emergency
+// contact with a clearly-labelled test message, so the setup can be checked
+// without faking a crash. Returns Twilio's result in plain words.
+if ($action === 'test_call') {
+    require_post();
+    require_once __DIR__ . '/lib/voice.php';
+    rate_limit($conn, "testcall:$uid", 3, 3600, "You can place 3 test calls an hour. Please try again later.");
+    $cfg = voice_config();
+    if (!$cfg) fail("Voice calls aren't set up on the server yet (twilio_voice_config.php).", 503);
+
+    $c = db_one($conn, "SELECT name, phone FROM emergency_contacts WHERE user_id = ? ORDER BY is_primary DESC, id ASC LIMIT 1", [$uid]);
+    if (!$c) {
+        $p = db_one($conn, "SELECT emergency_name AS name, emergency_phone AS phone FROM rider_profiles WHERE user_id = ?", [$uid]);
+        $c = $p && $p['phone'] ? $p : null;
+    }
+    if (!$c) fail("Add an emergency contact first.", 422);
+
+    $name = db_one($conn, "SELECT full_name FROM rider_profiles WHERE user_id = ?", [$uid])['full_name'] ?? $user['name'];
+    $r = voice_call($cfg, $c['phone'], [
+        "Hello. This is a test call from Accidiox.",
+        "$name has added you as their emergency contact.",
+        "If they are ever in a motorcycle accident, you will get a call like this with their location.",
+        "No action is needed. This was only a test.",
+    ]);
+    json_out([
+        "status" => $r['ok'] ? "success" : "error",
+        "name" => $c['name'], "phone" => voice_mask($r['to']),
+        "message" => $r['ok'] ? "Calling {$c['name']} now." : $r['error'],
+        "code" => $r['code'] ?? null,
+    ], $r['ok'] ? 200 : 502);
+}
+
 if ($action === 'history') {
     $rows = db_all($conn, "SELECT * FROM incidents WHERE rider_user_id = ? ORDER BY id DESC LIMIT 50", [$uid]);
     json_out(["status" => "success", "history" => array_map(fn($r) => rider_view(incident_payload($conn, $r)), $rows)]);
@@ -112,7 +144,7 @@ fail("Unknown action.");
 // Riders see who helped them, not the internal dispatch details of other hospitals.
 function rider_view($p) {
     $p['timeline'] = array_values(array_filter($p['timeline'] ?? [], fn($e) => in_array($e['status'],
-        ['REPORTED', 'ALERTED', 'DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'AT_SCENE', 'PICKED_UP', 'ADMITTED', 'CANCELLED'], true)));
+        ['REPORTED', 'ALERTED', 'DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'AT_SCENE', 'PICKED_UP', 'ADMITTED', 'CANCELLED', 'CALLED'], true)));
     foreach ($p['timeline'] as &$e) { unset($e['by']); }
     return $p;
 }
