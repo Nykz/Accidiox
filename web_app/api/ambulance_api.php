@@ -44,7 +44,7 @@ if ($action === 'me') {
         "assignment" => (int) $amb['approved'] === 1 ? current_assignment($conn, $amb) : null,
         "accept_seconds" => ASSIGN_ACCEPT_SECONDS,
         // A case this unit was on that the rider just cancelled (they're safe).
-        "recent_cancel" => db_one($conn, "SELECT id, cancel_condition, cancel_treatment FROM incidents
+        "recent_cancel" => db_one($conn, "SELECT id, cancel_condition, cancel_treatment, cancelled_by FROM incidents
                                   WHERE ambulance_id = ? AND status = 'CANCELLED' AND cancelled_at > ? ORDER BY id DESC LIMIT 1",
             [(int) $amb['id'], ts_ago(180)]),
         "completed_today" => (int) $done['n'],

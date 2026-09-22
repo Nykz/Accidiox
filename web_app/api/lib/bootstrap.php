@@ -30,8 +30,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $conn->set_charset('utf8mb4');
 
-const SCHEMA_VERSION = 'v3.1';
-const SESSION_DAYS = ['rider' => 180, 'hospital' => 7, 'ambulance' => 30];
+const SCHEMA_VERSION = 'v3.2';
+const SESSION_DAYS = ['rider' => 180, 'hospital' => 7, 'ambulance' => 30, 'admin' => 2];
 const ASSIGN_ACCEPT_SECONDS = 60;   // crew must accept a dispatch within this
 const CLAIM_RELEASE_SECONDS = 300;  // a claim with no accepting crew goes back to the grid
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -386,6 +386,9 @@ function ensure_schema($conn) {
         ['incidents', 'cancelled_at', "ADD COLUMN `cancelled_at` DATETIME DEFAULT NULL"],
         ['incidents', 'cancel_condition', "ADD COLUMN `cancel_condition` VARCHAR(16) DEFAULT NULL"],
         ['incidents', 'cancel_treatment', "ADD COLUMN `cancel_treatment` VARCHAR(16) DEFAULT NULL"],
+        // 'rider' (from the app) or 'support' (Accidiox team closed it after calling the rider).
+        ['incidents', 'cancelled_by', "ADD COLUMN `cancelled_by` VARCHAR(16) DEFAULT NULL"],
+        ['incidents', 'cancel_note', "ADD COLUMN `cancel_note` VARCHAR(255) DEFAULT NULL"],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         if (!column_exists($conn, $table, $col)) $conn->query("ALTER TABLE `$table` $ddl");
@@ -609,6 +612,7 @@ function incident_payload($conn, $row, $withTimeline = true) {
         "cancelled_at" => $row['cancelled_at'] ?? null,
         "cancel_condition" => $row['cancel_condition'] ?? null,
         "cancel_treatment" => $row['cancel_treatment'] ?? null,
+        "cancelled_by" => $row['cancelled_by'] ?? null,
         "rider_name" => $row['rider_name'],
         "rider_phone" => $row['rider_phone'],
         "blood_group" => $row['blood_group'],

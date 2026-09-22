@@ -265,7 +265,9 @@
     if (!pending) stopRinging();
     if (!job && state.hadAssignment && d.recent_cancel) {
       stopRinging();
-      toast("The rider cancelled: they got help and are safe. You're free for the next case.");
+      toast(d.recent_cancel.cancelled_by === "support"
+        ? "Accidiox support confirmed the rider is safe. You're free for the next case."
+        : "The rider cancelled: they got help and are safe. You're free for the next case.");
     } else if (!job && state.hadAssignment) {
       toast(state.hadAssignment === "PENDING"
         ? "The dispatch expired, so your hospital is sending another unit."

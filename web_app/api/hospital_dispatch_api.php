@@ -57,12 +57,15 @@ if ($action === 'get_incidents') {
     $incidents = [];
     if ($verified) {
         // Open incidents stay visible; closed ones drop off after 12 hours.
+        // Emergencies Accidiox support closed (rider confirmed safe by phone)
+        // leave every hospital's list straight away.
         $rows = db_all($conn,
             "SELECT i.*, a.alert_rank, a.distance_km
              FROM incidents i
              LEFT JOIN incident_alerts a ON a.incident_id = i.id AND a.hospital_id = ?
              WHERE (a.hospital_id IS NOT NULL OR i.claimed_by_hospital_id = ?)
                AND (i.status NOT IN ('ADMITTED', 'CANCELLED') OR i.updated_at > ?)
+               AND (i.cancelled_by IS NULL OR i.cancelled_by <> 'support')
              ORDER BY i.id DESC LIMIT 50",
             [$hid, $hid, ts_ago(12 * 3600)]);
         foreach ($rows as $r) {

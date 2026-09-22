@@ -86,7 +86,7 @@ if ($action === 'cancel_incident') {
 
     $now = now_ts();
     $ok = db_exec($conn, "UPDATE incidents SET status = 'CANCELLED', assignment_status = IF(assignment_status IS NULL, NULL, 'CANCELLED'),
-                          eta_minutes = NULL, cancelled_at = ?, cancel_condition = ?, cancel_treatment = ?, updated_at = ?
+                          eta_minutes = NULL, cancelled_at = ?, cancel_condition = ?, cancel_treatment = ?, cancelled_by = 'rider', updated_at = ?
                           WHERE id = ? AND rider_user_id = ? AND status IN ('UNCLAIMED', 'DISPATCHED', 'EN_ROUTE')",
         [$now, $condition, $treatment, $now, $incidentId, $uid]);
     if ($ok !== 1) fail("This request can no longer be cancelled.", 409);

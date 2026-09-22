@@ -16,8 +16,8 @@
   const DISMISS_KEY = "accidiox.rider.dismissedIncident";
   // Phases in which the rider can still call off the ambulance.
   const CANCELLABLE = ["UNCLAIMED", "HOSPITAL", "COMING", "EN_ROUTE"];
-  const CONDITION_TEXT = { fine: "I'm fine", minor: "Minor injuries", hurt: "I'm hurt" };
-  const TREATMENT_TEXT = { clinic: "Treated at a nearby clinic / medical shop", helped: "People nearby helped me", hospital: "Going to a hospital myself", none: "No treatment yet" };
+  const CONDITION_TEXT = { fine: "I'm fine", minor: "Minor injuries", hurt: "I'm hurt", false_alarm: "False alarm" };
+  const TREATMENT_TEXT = { clinic: "Treated at a nearby clinic / medical shop", helped: "People nearby helped me", hospital: "Going to a hospital myself", none: "No treatment yet", not_needed: "Not needed" };
 
   const track = { id: null, timer: null, lastPhase: null, incident: null, fitted: false };
   let ambMarker = null;
@@ -198,7 +198,7 @@
         ? [
             ["How you were", CONDITION_TEXT[inc.cancel_condition] || "—"],
             ["Treatment", TREATMENT_TEXT[inc.cancel_treatment] || "—"],
-            ["Cancelled at", inc.cancelled_at ? parseTs(inc.cancelled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"],
+            [inc.cancelled_by === "support" ? "Closed by support" : "Cancelled at", inc.cancelled_at ? parseTs(inc.cancelled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"],
             ["Hospital", hosp || "Not assigned"]
           ]
         : [
@@ -209,7 +209,7 @@
           ];
       const steps = (inc.timeline || []).map((e) => {
         const t = parseTs(e.at);
-        return `<li><time>${t ? t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : ""}</time><span>${esc(labels[e.status] || e.status)}</span></li>`;
+        return `<li><time>${t ? t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : ""}</time><span>${esc(e.status === "CANCELLED" && e.actor_type === "support" ? "Accidiox support confirmed you're safe" : (labels[e.status] || e.status))}</span></li>`;
       }).join("");
       return `
         <details class="history-item">
@@ -431,7 +431,7 @@
       <div class="rescue-top">
         <span class="rescue-icon">${svg(ICON.check)}</span>
         <div class="rescue-head-text">
-          <div class="rescue-eyebrow">Request cancelled</div>
+          <div class="rescue-eyebrow">${inc.cancelled_by === "support" ? "Closed by Accidiox support" : "Request cancelled"}</div>
           <h3>Glad you're safe</h3>
         </div>
         <button class="rescue-close" type="button" id="btnDismissRescue" aria-label="Dismiss">${svg(ICON.x)}</button>
@@ -440,7 +440,7 @@
         <div><span>How you were</span><strong>${esc(CONDITION_TEXT[inc.cancel_condition] || "—")}</strong></div>
         <div><span>Treatment</span><strong>${esc(TREATMENT_TEXT[inc.cancel_treatment] || "—")}</strong></div>
       </div>
-      <p class="rescue-text">We've stopped searching and freed the ambulance for the next emergency. If you start feeling unwell, call 108 right away. This is saved in Settings → My Emergencies.</p>`;
+      <p class="rescue-text">${inc.cancelled_by === "support" ? "Our support team confirmed with you that you're safe, so we" : "We've"} stopped searching and freed the ambulance for the next emergency. If you start feeling unwell, call 108 right away. This is saved in Settings → My Emergencies.</p>`;
     $("btnDismissRescue").addEventListener("click", () => {
       card.hidden = true;
       card.innerHTML = "";
