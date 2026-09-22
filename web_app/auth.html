@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="css/auth.css?v=3" />
+  <link rel="stylesheet" href="css/auth.css?v=5" />
   <script>
     // Pick the theme before first paint to avoid a light/dark flash.
     (function () {
@@ -30,6 +30,8 @@
       <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.99-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 14.99 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></symbol>
       <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+      <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></symbol>
     </defs>
   </svg>
 
@@ -175,7 +177,21 @@
             <input class="input" type="email" name="email" autocomplete="email" placeholder="you@example.com" />
           </label>
           <button type="submit" class="btn btn-primary btn-block"><span>Email me a reset link</span><svg class="ic ic-sm"><use href="#i-arrow"/></svg></button>
-          <div class="notice" id="forgotNotice" hidden></div>
+          <div class="sent" id="forgotNotice" hidden>
+            <div class="sent-head">
+              <span class="sent-icon"><svg class="ic"><use href="#i-mail"/></svg></span>
+              <div>
+                <strong>Check your email</strong>
+                <span id="forgotSentTo">We've sent a reset link if an account exists for that address.</span>
+              </div>
+            </div>
+            <div class="spam-tip">
+              <svg class="ic ic-sm"><use href="#i-alert"/></svg>
+              <span><strong>Not in your inbox? Check your Spam or Junk folder.</strong> If you find it there, tap "Not spam" so future emails from Accidiox arrive normally.</span>
+            </div>
+            <p class="sent-fine">The link works once and expires in 30 minutes.</p>
+            <button type="button" class="link-btn" id="btnResend" disabled>Resend email</button>
+          </div>
           <button type="button" class="link-btn" data-back>Back to sign in</button>
         </form>
 
@@ -199,6 +215,6 @@
   </div>
 
   <script src="js/session.js?v=2"></script>
-  <script src="js/auth.js?v=2"></script>
+  <script src="js/auth.js?v=3"></script>
 </body>
 </html>

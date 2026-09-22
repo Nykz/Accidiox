@@ -111,7 +111,14 @@
     setMode("forgot");
     if (email) $("forgotForm").email.value = email;
   });
-  document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => setMode("login")));
+  document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => {
+    // Reset the forgot form so it's ready for next time.
+    const f = $("forgotForm");
+    f.querySelector(".field").hidden = false;
+    f.querySelector('button[type="submit"]').hidden = false;
+    $("forgotNotice").hidden = true;
+    setMode("login");
+  }));
   setMode(resetToken ? "reset" : params.get("mode") === "register" ? "register" : "login");
 
   // ----- Helpers -----
@@ -189,6 +196,31 @@
   });
 
   // ----- Forgot password -----
+  // After sending: hide the form, show a "check your email" card with a
+  // clear Spam/Junk reminder, and allow a resend after a short cooldown.
+  let resendTimer = null;
+  function showSent(email) {
+    const f = $("forgotForm");
+    f.querySelector(".field").hidden = true;
+    f.querySelector('button[type="submit"]').hidden = true;
+    $("forgotSentTo").textContent = `If an account exists for ${email}, a reset link is on its way.`;
+    $("forgotNotice").hidden = false;
+    $("formSub").textContent = "Almost there.";
+    const btn = $("btnResend");
+    let left = 30;
+    btn.disabled = true;
+    btn.textContent = `Resend email in ${left}s`;
+    clearInterval(resendTimer);
+    resendTimer = setInterval(() => {
+      left -= 1;
+      if (left > 0) { btn.textContent = `Resend email in ${left}s`; return; }
+      clearInterval(resendTimer);
+      btn.disabled = false;
+      btn.textContent = "Resend email";
+    }, 1000);
+  }
+  $("btnResend").addEventListener("click", () => $("forgotForm").requestSubmit());
+
   $("forgotForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.target;
@@ -199,9 +231,7 @@
       const { ok, data } = await call("forgot_password", { role, email });
       if (ok) {
         showError(null);
-        const n = $("forgotNotice");
-        n.textContent = data.message;
-        n.hidden = false;
+        showSent(email);
       } else {
         showError(data.message || "Couldn't send the email. Try again.", data.field);
       }
