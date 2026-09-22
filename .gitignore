@@ -44,3 +44,16 @@ web_app/api/email_config.php
 
 # Runtime state written by the PHP APIs (schema flags, old dispatch JSON).
 web_app/api/data/
+
+# Local pitch-deck workshop: generated .pptx files, their build scripts and
+# raw capture folders. The deck that matters is exported to PDF and uploaded
+# to the submission form, so none of this belongs in the repo.
+/*.pptx
+/build_*.js
+/make_pptx.js
+/test_deck.html
+/ppt prompt.txt
+/KAYA_IIT_Varanasi_Pitch_Deck_20_Slides.md
+/screens/
+/accident images/
+/accident videos/

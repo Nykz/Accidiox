@@ -7,6 +7,7 @@
 * **`index.html`**: Rider Mobile Telemetry HUD (Web Bluetooth connect, 3D top-down instrument cluster, smartphone GPS, 20-second safety countdown, cancel button, SOS triggers).
 * **`hospital_dashboard.html`**: Hospital console. Crash alerts for the nearest verified hospitals, ambulance dispatch with a 60 s crew-accept window, fleet approvals, beds and admissions.
 * **`ambulance.html`**: Accidiox Crew app. Accept/decline dispatches, patient blood group and allergies, live GPS, stage updates.
+* **`admin.html`**: Accidiox owner console. Approve hospitals and crews, close emergencies a rider never answered, free an ambulance left on a finished case.
 * **`auth.html`**: Sign in / sign up / password reset for each app (each app has its own accounts).
 * **`js/bluetooth.js`**: Web Bluetooth Low Energy (BLE) interface communicating directly with ESP32 (`Bike-Blackbox-ESP32`).
 * **`js/app.js`**: Main app controller, audio siren synthesizer, text-to-speech, GPS tracker, and WAMP database synchronization.
