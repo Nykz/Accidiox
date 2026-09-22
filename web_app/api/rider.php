@@ -61,6 +61,47 @@ if ($action === 'active_incident') {
     json_out(["status" => "success", "incident" => $row ? rider_view(incident_payload($conn, $row)) : null, "server_time" => now_ts()]);
 }
 
+// The rider got help before the ambulance arrived (a nearby clinic, a
+// medical shop, people nearby) and says they're safe. Stops the search,
+// frees any assigned ambulance and records their answers.
+//   POST { incident_id, condition: fine|minor|hurt, treatment: clinic|helped|hospital|none }
+if ($action === 'cancel_incident') {
+    require_post();
+    $in = read_json();
+    $incidentId = (int) ($in['incident_id'] ?? 0);
+    $condition = str_in($in, 'condition', 16);
+    $treatment = str_in($in, 'treatment', 16);
+    if (!isset(CANCEL_CONDITION[$condition])) fail("Tell us how you're feeling.", 422, ["field" => "condition"]);
+    if (!isset(CANCEL_TREATMENT[$treatment])) fail("Tell us whether you've been treated.", 422, ["field" => "treatment"]);
+    // Safety: someone who is hurt and untreated keeps the ambulance coming.
+    if ($condition === 'hurt' && $treatment === 'none') {
+        fail("You said you're hurt and haven't been treated, so we're keeping help on the way.", 422, ["code" => "keep_help"]);
+    }
+
+    $inc = db_one($conn, "SELECT * FROM incidents WHERE id = ? AND rider_user_id = ?", [$incidentId, $uid]);
+    if (!$inc) fail("Emergency not found.", 404);
+    if (in_array($inc['status'], ['AT_SCENE', 'PICKED_UP', 'ADMITTED', 'CANCELLED'], true)) {
+        fail($inc['status'] === 'CANCELLED' ? "This request is already cancelled." : "The ambulance crew is already with you.", 409);
+    }
+
+    $now = now_ts();
+    $ok = db_exec($conn, "UPDATE incidents SET status = 'CANCELLED', assignment_status = IF(assignment_status IS NULL, NULL, 'CANCELLED'),
+                          eta_minutes = NULL, cancelled_at = ?, cancel_condition = ?, cancel_treatment = ?, updated_at = ?
+                          WHERE id = ? AND rider_user_id = ? AND status IN ('UNCLAIMED', 'DISPATCHED', 'EN_ROUTE')",
+        [$now, $condition, $treatment, $now, $incidentId, $uid]);
+    if ($ok !== 1) fail("This request can no longer be cancelled.", 409);
+
+    // Free the ambulance straight away for the next emergency.
+    if (!empty($inc['ambulance_id'])) {
+        db_exec($conn, "UPDATE ambulances SET status = IF(status = 'assigned', 'available', status), current_incident_id = NULL
+                        WHERE id = ? AND current_incident_id = ?", [(int) $inc['ambulance_id'], $incidentId]);
+    }
+    add_event($conn, $incidentId, 'CANCELLED', 'rider', null, CANCEL_CONDITION[$condition] . ' · ' . CANCEL_TREATMENT[$treatment]);
+
+    $row = db_one($conn, "SELECT * FROM incidents WHERE id = ?", [$incidentId]);
+    json_out(["status" => "success", "incident" => rider_view(incident_payload($conn, $row))]);
+}
+
 if ($action === 'history') {
     $rows = db_all($conn, "SELECT * FROM incidents WHERE rider_user_id = ? ORDER BY id DESC LIMIT 50", [$uid]);
     json_out(["status" => "success", "history" => array_map(fn($r) => rider_view(incident_payload($conn, $r)), $rows)]);
@@ -71,7 +112,7 @@ fail("Unknown action.");
 // Riders see who helped them, not the internal dispatch details of other hospitals.
 function rider_view($p) {
     $p['timeline'] = array_values(array_filter($p['timeline'] ?? [], fn($e) => in_array($e['status'],
-        ['REPORTED', 'ALERTED', 'DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'AT_SCENE', 'PICKED_UP', 'ADMITTED'], true)));
+        ['REPORTED', 'ALERTED', 'DISPATCHED', 'ACCEPTED', 'EN_ROUTE', 'AT_SCENE', 'PICKED_UP', 'ADMITTED', 'CANCELLED'], true)));
     foreach ($p['timeline'] as &$e) { unset($e['by']); }
     return $p;
 }

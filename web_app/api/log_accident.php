@@ -33,7 +33,7 @@ $response = ["status" => "success", "log_id" => $logId];
 if ($status === 'CONFIRMED_CRASH' && valid_coords($lat, $lon)) {
     // One open emergency per rider at a time; a second report while help is
     // already coming reuses it instead of re-alerting every hospital.
-    $open = db_one($conn, "SELECT id FROM incidents WHERE rider_user_id = ? AND status NOT IN ('ADMITTED') AND created_at > ? ORDER BY id DESC LIMIT 1",
+    $open = db_one($conn, "SELECT id FROM incidents WHERE rider_user_id = ? AND status NOT IN ('ADMITTED', 'CANCELLED') AND created_at > ? ORDER BY id DESC LIMIT 1",
         [$uid, ts_ago(3600)]);
     $incidentId = $open ? (int) $open['id'] : create_incident($conn, [
         "accident_log_id" => $logId,

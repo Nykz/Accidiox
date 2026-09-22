@@ -25,10 +25,16 @@ const EVENT_TEXT = {
   DECLINED: "Crew declined",
   NO_RESPONSE: "Crew didn't respond",
   RELEASED: "Case returned to nearby hospitals",
+  CANCELLED: "Rider cancelled: reported safe",
   EN_ROUTE: "Ambulance en route",
   AT_SCENE: "Ambulance on scene",
   PICKED_UP: "Patient picked up",
   ADMITTED: "Admitted to emergency department"
+};
+
+const CANCEL_TEXT = {
+  condition: { fine: "Yes, I'm fine", minor: "Minor injuries", hurt: "I'm hurt" },
+  treatment: { clinic: "At a nearby clinic / medical shop", helped: "People nearby helped", hospital: "Going to a hospital themselves", none: "Not yet" }
 };
 
 const account = S.guard(ROLE);
@@ -47,6 +53,7 @@ const state = {
   seenIds: new Set(),
   assignSeen: {},
   failedUnits: {},
+  statusSeen: {},
   pendingClaimId: null,
   claimMode: "claim",
   confirmFn: null,
@@ -187,8 +194,9 @@ function kindOf(inc) {
 function stageIndex(inc) {
   return STAGES.indexOf(inc.dispatch_status);
 }
+// Closed: admitted, or cancelled by the rider after they got help.
 function isDone(inc) {
-  return inc.dispatch_status === "ADMITTED";
+  return inc.dispatch_status === "ADMITTED" || inc.dispatch_status === "CANCELLED";
 }
 function isAccepted(inc) {
   return inc.assignment_status === "ACCEPTED";
@@ -211,6 +219,7 @@ function readyUnits() {
 }
 
 function statusPill(inc) {
+  if (inc.dispatch_status === "CANCELLED") return `<span class="pill">Cancelled</span>`;
   const k = kindOf(inc);
   if (k === "open") return `<span class="pill pill-danger">Open</span>`;
   if (k === "mine") {
@@ -264,7 +273,10 @@ async function fetchDispatchData() {
       watchAssignments();
     }
     fresh.forEach((i) => state.seenIds.add(i.id));
-    state.incidents.forEach((i) => (state.assignSeen[i.id] = `${i.ambulance_id}|${i.assignment_status}`));
+    state.incidents.forEach((i) => {
+      state.assignSeen[i.id] = `${i.ambulance_id}|${i.assignment_status}`;
+      state.statusSeen[i.id] = i.dispatch_status;
+    });
 
     if (!state.selectedId || !state.incidents.some((i) => i.id === state.selectedId)) {
       const first = sortIncidents(state.incidents)[0];
@@ -284,6 +296,13 @@ async function fetchDispatchData() {
 // When a crew declines or lets the 60 s run out, tell the desk right away
 // and open the unit picker so another ambulance can be sent.
 function watchAssignments() {
+  state.incidents.forEach((inc) => {
+    // The rider called off the request (they got help / are safe).
+    if (inc.dispatch_status === "CANCELLED" && state.statusSeen[inc.id] && state.statusSeen[inc.id] !== "CANCELLED") {
+      toast("success", `${incCode(inc)} cancelled by rider`, "They reported they're safe. No ambulance needed.", "check");
+      if (state.pendingClaimId === inc.id) closeClaimModal();
+    }
+  });
   state.incidents.forEach((inc) => {
     if (kindOf(inc) !== "mine") return;
     const prev = state.assignSeen[inc.id];
@@ -547,6 +566,22 @@ function phoneLink(value) {
 }
 
 function renderActionCard(inc, k, created) {
+  if (inc.dispatch_status === "CANCELLED") {
+    return `
+      <div class="action-card">
+        <div class="action-row">
+          <div>
+            <div class="action-label">Cancelled by the rider ${fmtClock(parseTs(inc.cancelled_at))}</div>
+            <div class="action-big" style="color:var(--success)">Rider safe</div>
+          </div>
+        </div>
+        <div class="kv">
+          <div class="kv-item"><span>Are you fine?</span><strong>${esc(CANCEL_TEXT.condition[inc.cancel_condition] || "—")}</strong></div>
+          <div class="kv-item"><span>Medical treatment</span><strong>${esc(CANCEL_TEXT.treatment[inc.cancel_treatment] || "—")}</strong></div>
+        </div>
+        <p class="action-note">The rider got help before an ambulance reached them. ${k === "mine" ? "Your ambulance has been released for the next emergency." : "No action needed."}</p>
+      </div>`;
+  }
   const km = inc.my_distance_km != null ? inc.my_distance_km : distanceFrom(state.me.id, inc);
   const outOfArea = km != null && km > SERVICE_RADIUS_KM;
 

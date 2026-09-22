@@ -62,7 +62,7 @@ if ($action === 'get_incidents') {
              FROM incidents i
              LEFT JOIN incident_alerts a ON a.incident_id = i.id AND a.hospital_id = ?
              WHERE (a.hospital_id IS NOT NULL OR i.claimed_by_hospital_id = ?)
-               AND (i.status <> 'ADMITTED' OR i.updated_at > ?)
+               AND (i.status NOT IN ('ADMITTED', 'CANCELLED') OR i.updated_at > ?)
              ORDER BY i.id DESC LIMIT 50",
             [$hid, $hid, ts_ago(12 * 3600)]);
         foreach ($rows as $r) {
@@ -72,7 +72,7 @@ if ($action === 'get_incidents') {
             // Another hospital's responder details are none of our business.
             if ($p['claimed_by_hospital_id'] && $p['claimed_by_hospital_id'] !== $hid) {
                 foreach (['driver_name', 'driver_phone', 'ambulance_vehicle', 'ambulance_position'] as $k) $p[$k] = null;
-                $p['timeline'] = array_values(array_filter($p['timeline'], fn($e) => in_array($e['status'], ['REPORTED', 'ALERTED', 'DISPATCHED', 'ADMITTED'], true)));
+                $p['timeline'] = array_values(array_filter($p['timeline'], fn($e) => in_array($e['status'], ['REPORTED', 'ALERTED', 'DISPATCHED', 'ADMITTED', 'CANCELLED'], true)));
             }
             $incidents[] = $p;
         }
@@ -103,6 +103,7 @@ if ($action === 'claim_incident') {
     $incidentId = (int) ($in['incident_id'] ?? 0);
     $inc = db_one($conn, "SELECT * FROM incidents WHERE id = ?", [$incidentId]);
     if (!$inc) fail("Incident not found.", 404);
+    if ($inc['status'] === 'CANCELLED') fail("The rider cancelled this request. They reported they're safe.", 409, ["code" => "cancelled"]);
     if (!db_one($conn, "SELECT 1 FROM incident_alerts WHERE incident_id = ? AND hospital_id = ?", [$incidentId, $hid])) {
         fail("Your hospital wasn't among the nearest hospitals alerted for this crash.", 403);
     }
@@ -131,6 +132,7 @@ if ($action === 'assign_ambulance') {
     $incidentId = (int) ($in['incident_id'] ?? 0);
     $inc = db_one($conn, "SELECT * FROM incidents WHERE id = ?", [$incidentId]);
     if (!$inc || $inc['claimed_by_hospital_id'] !== $hid) fail("Incident not found.", 404);
+    if ($inc['status'] === 'CANCELLED') fail("The rider cancelled this request. They reported they're safe.", 409);
     $amb = claimable_unit($conn, $hid, $in['ambulance_id'] ?? 0);
     $eta = eta_from_unit($amb, $me, $inc);
     $now = now_ts();

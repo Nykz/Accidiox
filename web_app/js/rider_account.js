@@ -14,6 +14,10 @@
     ["ADMITTED", "Admitted"]
   ];
   const DISMISS_KEY = "accidiox.rider.dismissedIncident";
+  // Phases in which the rider can still call off the ambulance.
+  const CANCELLABLE = ["UNCLAIMED", "HOSPITAL", "COMING", "EN_ROUTE"];
+  const CONDITION_TEXT = { fine: "I'm fine", minor: "Minor injuries", hurt: "I'm hurt" };
+  const TREATMENT_TEXT = { clinic: "Treated at a nearby clinic / medical shop", helped: "People nearby helped me", hospital: "Going to a hospital myself", none: "No treatment yet" };
 
   const track = { id: null, timer: null, lastPhase: null, incident: null, fitted: false };
   let ambMarker = null;
@@ -128,9 +132,9 @@
       return;
     }
     const statusText = { UNCLAIMED: ["Finding help", "open"], HOSPITAL: ["Assigning ambulance", "moving"], COMING: ["Ambulance coming", "moving"],
-      EN_ROUTE: ["Ambulance coming", "moving"], AT_SCENE: ["Ambulance arrived", "moving"], PICKED_UP: ["To hospital", "moving"], ADMITTED: ["Admitted", ""] };
+      EN_ROUTE: ["Ambulance coming", "moving"], AT_SCENE: ["Ambulance arrived", "moving"], PICKED_UP: ["To hospital", "moving"], ADMITTED: ["Admitted", ""], CANCELLED: ["Cancelled · safe", ""] };
     const labels = { REPORTED: "Crash detected", ALERTED: "Nearest hospitals alerted", DISPATCHED: "Hospital accepted", ACCEPTED: "Ambulance crew accepted",
-      EN_ROUTE: "Ambulance on the way", AT_SCENE: "Ambulance arrived", PICKED_UP: "Picked up", ADMITTED: "Admitted" };
+      EN_ROUTE: "Ambulance on the way", AT_SCENE: "Ambulance arrived", PICKED_UP: "Picked up", ADMITTED: "Admitted", CANCELLED: "You cancelled: you were safe" };
 
     list.innerHTML = items.slice(0, historyLimit).map((inc) => {
       const phase = phaseOf(inc);
@@ -139,12 +143,19 @@
       const date = when ? when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
       const time = when ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
       const hosp = inc.hospital ? inc.hospital.name : null;
-      const facts = [
-        ["Hospital", hosp || "Not assigned"],
-        ["Ambulance", inc.ambulance_unit ? `${inc.ambulance_unit}${inc.ambulance_type ? ` · ${inc.ambulance_type}` : ""}` : "—"],
-        ["Crew", inc.driver_name || "—"],
-        ["Admitted", inc.admitted_at ? parseTs(inc.admitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"]
-      ];
+      const facts = phase === "CANCELLED"
+        ? [
+            ["How you were", CONDITION_TEXT[inc.cancel_condition] || "—"],
+            ["Treatment", TREATMENT_TEXT[inc.cancel_treatment] || "—"],
+            ["Cancelled at", inc.cancelled_at ? parseTs(inc.cancelled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"],
+            ["Hospital", hosp || "Not assigned"]
+          ]
+        : [
+            ["Hospital", hosp || "Not assigned"],
+            ["Ambulance", inc.ambulance_unit ? `${inc.ambulance_unit}${inc.ambulance_type ? ` · ${inc.ambulance_type}` : ""}` : "—"],
+            ["Crew", inc.driver_name || "—"],
+            ["Admitted", inc.admitted_at ? parseTs(inc.admitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"]
+          ];
       const steps = (inc.timeline || []).map((e) => {
         const t = parseTs(e.at);
         return `<li><time>${t ? t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : ""}</time><span>${esc(labels[e.status] || e.status)}</span></li>`;
@@ -211,7 +222,7 @@
       renderRescue(inc);
       updateMap(inc);
       updateSosModal(inc);
-      if (phase === "ADMITTED") {
+      if (phase === "ADMITTED" || phase === "CANCELLED") {
         clearInterval(track.timer);
         track.timer = null;
       }
@@ -257,7 +268,7 @@
     }
   }
 
-  function renderRescue(inc) {
+  function renderRescueBody(inc) {
     const card = $("rescueCard");
     if (!card) return;
     const phase = phaseOf(inc);
@@ -344,11 +355,150 @@
     });
   }
 
+  function renderRescue(inc) {
+    const phase = phaseOf(inc);
+    if (phase === "CANCELLED") return renderCancelled(inc);
+    renderRescueBody(inc);
+    // Until the crew reaches the rider, they can call off the ambulance
+    // (e.g. a nearby clinic or medical shop already helped them).
+    if (CANCELLABLE.includes(phase) && inc.id) {
+      const card = $("rescueCard");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "rescue-safe-btn";
+      btn.innerHTML = `${svg(ICON.check)}<span>I'm safe, cancel help</span>`;
+      btn.addEventListener("click", () => openCancelSheet(inc));
+      card.appendChild(btn);
+    }
+  }
+
+  function renderCancelled(inc) {
+    const card = $("rescueCard");
+    card.hidden = false;
+    card.className = "card rescue-card is-done";
+    card.innerHTML = `
+      <div class="rescue-top">
+        <span class="rescue-icon">${svg(ICON.check)}</span>
+        <div class="rescue-head-text">
+          <div class="rescue-eyebrow">Request cancelled</div>
+          <h3>Glad you're safe</h3>
+        </div>
+        <button class="rescue-close" type="button" id="btnDismissRescue" aria-label="Dismiss">${svg(ICON.x)}</button>
+      </div>
+      <div class="rescue-answers">
+        <div><span>How you were</span><strong>${esc(CONDITION_TEXT[inc.cancel_condition] || "—")}</strong></div>
+        <div><span>Treatment</span><strong>${esc(TREATMENT_TEXT[inc.cancel_treatment] || "—")}</strong></div>
+      </div>
+      <p class="rescue-text">We've stopped searching and freed the ambulance for the next emergency. If you start feeling unwell, call 108 right away. This is saved in Settings → My Emergencies.</p>`;
+    $("btnDismissRescue").addEventListener("click", () => {
+      card.hidden = true;
+      card.innerHTML = "";
+      try { localStorage.setItem(DISMISS_KEY, String(inc.id)); } catch (e) {}
+      clearInterval(track.timer);
+      track.timer = null;
+      track.id = null;
+      removeMapLayers();
+      loadHistory();
+    });
+  }
+
+  // "Are you fine?" + "Have you got medical treatment?" before cancelling.
+  function openCancelSheet(inc) {
+    const answers = { condition: null, treatment: null };
+    const wrap = document.createElement("div");
+    wrap.className = "safe-sheet-backdrop";
+    wrap.innerHTML = `
+      <div class="safe-sheet" role="dialog" aria-modal="true" aria-labelledby="safeTitle">
+        <div class="safe-grip"></div>
+        <h3 id="safeTitle">Cancel the ambulance?</h3>
+        <p class="safe-lead">Only if you've already got help. Two quick questions so the hospital knows you're okay.</p>
+
+        <div class="safe-q">1. Are you fine?</div>
+        <div class="safe-options" data-q="condition">
+          <button type="button" data-v="fine">Yes, I'm fine</button>
+          <button type="button" data-v="minor">Minor injuries</button>
+          <button type="button" data-v="hurt">I'm hurt</button>
+        </div>
+
+        <div class="safe-q">2. Have you got medical treatment?</div>
+        <div class="safe-options stack" data-q="treatment">
+          <button type="button" data-v="clinic">Yes, at a nearby clinic / medical shop</button>
+          <button type="button" data-v="helped">People nearby helped me</button>
+          <button type="button" data-v="hospital">I'm going to a hospital myself</button>
+          <button type="button" data-v="none">No, not yet</button>
+        </div>
+
+        <div class="safe-warn" hidden>You said you're hurt and haven't been treated. We'll keep the ambulance coming. It's the safest choice.</div>
+        <div class="safe-error" hidden></div>
+
+        <div class="safe-actions">
+          <button type="button" class="btn btn-secondary" data-act="keep">Keep help coming</button>
+          <button type="button" class="btn btn-danger-solid" data-act="cancel" disabled>Cancel ambulance</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+    requestAnimationFrame(() => wrap.classList.add("show"));
+
+    const confirmBtn = wrap.querySelector('[data-act="cancel"]');
+    const warn = wrap.querySelector(".safe-warn");
+    const errBox = wrap.querySelector(".safe-error");
+    const close = () => { wrap.classList.remove("show"); setTimeout(() => wrap.remove(), 200); };
+    const update = () => {
+      const blocked = answers.condition === "hurt" && answers.treatment === "none";
+      warn.hidden = !blocked;
+      confirmBtn.disabled = !answers.condition || !answers.treatment || blocked;
+    };
+
+    wrap.addEventListener("click", async (e) => {
+      if (e.target === wrap) return close();
+      const opt = e.target.closest(".safe-options [data-v]");
+      if (opt) {
+        const q = opt.parentElement.dataset.q;
+        answers[q] = opt.dataset.v;
+        opt.parentElement.querySelectorAll("[data-v]").forEach((b) => b.classList.toggle("active", b === opt));
+        errBox.hidden = true;
+        return update();
+      }
+      const act = e.target.closest("[data-act]");
+      if (!act) return;
+      if (act.dataset.act === "keep") return close();
+
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = "Cancelling…";
+      try {
+        const { ok, data } = await S.api("rider", "api/rider.php?action=cancel_incident", {
+          method: "POST",
+          body: { incident_id: inc.id, condition: answers.condition, treatment: answers.treatment }
+        });
+        if (!ok) {
+          errBox.textContent = data.message || "Couldn't cancel. The ambulance is still coming.";
+          errBox.hidden = false;
+          confirmBtn.textContent = "Cancel ambulance";
+          update();
+          return;
+        }
+        close();
+        track.lastPhase = "CANCELLED";
+        clearInterval(track.timer);
+        track.timer = null;
+        removeMapLayers();
+        renderCancelled(data.incident);
+        if (typeof speakVoice === "function") speakVoice("Request cancelled. Glad you're safe.");
+        loadHistory();
+      } catch (err) {
+        errBox.textContent = "No connection, so the ambulance is still coming. Try again in a moment.";
+        errBox.hidden = false;
+        confirmBtn.textContent = "Cancel ambulance";
+        update();
+      }
+    });
+  }
+
   // Ambulance + destination hospital on the home mini-map.
   function updateMap(inc) {
     if (typeof liveMap === "undefined" || !liveMap || typeof L === "undefined") return;
     const phase = phaseOf(inc);
-    if (["ADMITTED", "UNCLAIMED", "HOSPITAL"].includes(phase)) { removeMapLayers(); return; }
+    if (["ADMITTED", "UNCLAIMED", "HOSPITAL", "CANCELLED"].includes(phase)) { removeMapLayers(); return; }
 
     if (inc.hospital && !hospMarker) {
       hospMarker = L.marker([inc.hospital.latitude, inc.hospital.longitude], {

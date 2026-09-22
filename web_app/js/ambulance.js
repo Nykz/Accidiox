@@ -263,7 +263,10 @@
       ring(job);
     }
     if (!pending) stopRinging();
-    if (!job && state.hadAssignment) {
+    if (!job && state.hadAssignment && d.recent_cancel) {
+      stopRinging();
+      toast("The rider cancelled: they got help and are safe. You're free for the next case.");
+    } else if (!job && state.hadAssignment) {
       toast(state.hadAssignment === "PENDING"
         ? "The dispatch expired, so your hospital is sending another unit."
         : "Case closed. Patient admitted to the emergency department.");

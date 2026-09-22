@@ -30,7 +30,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $conn->set_charset('utf8mb4');
 
-const SCHEMA_VERSION = 'v3.0';
+const SCHEMA_VERSION = 'v3.1';
 const SESSION_DAYS = ['rider' => 180, 'hospital' => 7, 'ambulance' => 30];
 const ASSIGN_ACCEPT_SECONDS = 60;   // crew must accept a dispatch within this
 const CLAIM_RELEASE_SECONDS = 300;  // a claim with no accepting crew goes back to the grid
@@ -382,6 +382,10 @@ function ensure_schema($conn) {
         ['ambulances', 'approved', "ADD COLUMN `approved` TINYINT(1) NOT NULL DEFAULT 0"],
         ['incidents', 'assignment_status', "ADD COLUMN `assignment_status` VARCHAR(16) DEFAULT NULL AFTER `ambulance_id`"],
         ['incidents', 'assigned_at', "ADD COLUMN `assigned_at` DATETIME DEFAULT NULL AFTER `assignment_status`"],
+        // Rider cancelled the request after getting help ("Are you fine?" / "Got treatment?").
+        ['incidents', 'cancelled_at', "ADD COLUMN `cancelled_at` DATETIME DEFAULT NULL"],
+        ['incidents', 'cancel_condition', "ADD COLUMN `cancel_condition` VARCHAR(16) DEFAULT NULL"],
+        ['incidents', 'cancel_treatment', "ADD COLUMN `cancel_treatment` VARCHAR(16) DEFAULT NULL"],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         if (!column_exists($conn, $table, $col)) $conn->query("ALTER TABLE `$table` $ddl");
@@ -522,6 +526,11 @@ function alert_hospitals($conn, $incidentId, $lat, $lon) {
     return $alerted;
 }
 
+// Answers a rider can give when cancelling ("Are you fine?" / "Have you got
+// medical treatment?"), with the wording shown to hospitals and crews.
+const CANCEL_CONDITION = ['fine' => "I'm fine", 'minor' => 'Minor injuries', 'hurt' => "I'm hurt"];
+const CANCEL_TREATMENT = ['clinic' => 'Treated at a nearby clinic / medical shop', 'helped' => 'Helped by people nearby', 'hospital' => 'Going to a hospital on my own', 'none' => 'No treatment yet'];
+
 // Housekeeping run on every poll by hospitals, crews and riders:
 //  1. A crew that doesn't accept within 60 s loses the assignment; the
 //     hospital is asked to pick another ambulance.
@@ -597,6 +606,9 @@ function incident_payload($conn, $row, $withTimeline = true) {
         "eta_minutes" => $row['eta_minutes'] !== null ? (int) $row['eta_minutes'] : null,
         "dispatch_timestamp" => $row['dispatched_at'],
         "admitted_at" => $row['admitted_at'],
+        "cancelled_at" => $row['cancelled_at'] ?? null,
+        "cancel_condition" => $row['cancel_condition'] ?? null,
+        "cancel_treatment" => $row['cancel_treatment'] ?? null,
         "rider_name" => $row['rider_name'],
         "rider_phone" => $row['rider_phone'],
         "blood_group" => $row['blood_group'],
@@ -640,6 +652,7 @@ function status_index($s) {
 // Moves a claimed incident forward. Admission frees the ambulance and
 // takes one trauma bed off the claiming hospital's count.
 function advance_incident($conn, $incident, $newStatus, $actorType, $actorId) {
+    if ($incident['status'] === 'CANCELLED') fail("The rider cancelled this request. They reported they're safe.", 409);
     if (($incident['assignment_status'] ?? null) !== 'ACCEPTED') {
         fail("The ambulance crew hasn't accepted this case yet.", 409);
     }
