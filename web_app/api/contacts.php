@@ -1,17 +1,14 @@
 <?php
 // Emergency contacts for the rider app, scoped to the signed-in rider.
-// Requests without a rider token read/write the legacy shared list
-// (user_id IS NULL), so older installs keep working.
 //   GET              -> this rider's contacts
 //   POST {contacts}  -> replace this rider's list (first = primary)
 //   POST {name, phone, is_primary} -> add one
 //   DELETE {id} | {phone}
 require_once __DIR__ . '/lib/bootstrap.php';
 
-$rider = current_user($conn);
-$uid = $rider && $rider['role'] === 'rider' ? (int) $rider['id'] : null;
-// MySQL's null-safe equality lets one query serve both scopes.
-$scope = "user_id <=> ?";
+$rider = require_role($conn, 'rider');
+$uid = (int) $rider['id'];
+$scope = "user_id = ?";
 
 function contact_rows($conn, $scope, $uid) {
     return array_map(fn($r) => [
@@ -30,11 +27,12 @@ if ($method === 'GET') {
 
 if ($method === 'POST') {
     $input = read_json();
+    rate_limit($conn, "contacts:$uid", 30, 600);
 
     if (isset($input['contacts']) && is_array($input['contacts'])) {
         db_exec($conn, "DELETE FROM emergency_contacts WHERE $scope", [$uid]);
         $idx = 0;
-        foreach ($input['contacts'] as $c) {
+        foreach (array_slice($input['contacts'], 0, 10) as $c) {
             $name = trim((string) ($c['name'] ?? '')) ?: 'Emergency Contact';
             $phone = normalize_phone($c['phone'] ?? '');
             if (strlen($phone) < 10) continue;

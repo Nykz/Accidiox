@@ -2,7 +2,7 @@
 // Never intercepts BLE, geolocation, or the api/*.php, Nominatim, Overpass
 // and WhatsApp calls; those always hit the network live.
 
-const CACHE_NAME = "accidiox-shell-v23";
+const CACHE_NAME = "accidiox-shell-v24";
 const SHELL_FILES = [
   "index.html",
   "css/style.css",
@@ -19,7 +19,8 @@ const SHELL_FILES = [
   "js/onboarding.js",
   "manifest.json",
   "assets/icons/icon-192.png",
-  "assets/icons/icon-512.png"
+  "assets/icons/icon-512.png",
+  "assets/icons/badge-96.png"
 ];
 
 self.addEventListener("install", (event) => {

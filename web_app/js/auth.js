@@ -1,8 +1,11 @@
-// Sign in / create account for riders, hospitals and ambulance crews.
+// Sign in / create account / password reset. Each app opens this page with
+// its own role and never links to the others: riders only ever see the
+// rider sign-in.
 (function () {
   const S = window.AccidioxSession;
   const role = document.documentElement.dataset.role;
   const params = new URLSearchParams(location.search);
+  const resetToken = /^[a-f0-9]{64}$/.test(params.get("reset") || "") ? params.get("reset") : null;
   const $ = (id) => document.getElementById(id);
 
   const COPY = {
@@ -12,42 +15,35 @@
       lead: "Accidiox watches every lean and impact. If you go down, the nearest hospitals and your family know within seconds.",
       points: [
         ["bike", "Crash detected in 10 seconds", "An 85° tilt held for 10 s, then 20 s for you to say you're safe."],
-        ["building", "3 nearest hospitals alerted", "The first to accept sends an ambulance; the rest stand by."],
+        ["building", "Nearest hospitals alerted", "The first to accept sends an ambulance straight to you."],
         ["ambulance", "Your blood group rides ahead", "The crew knows your blood group and allergies before they reach you."]
       ],
-      loginTitle: "Welcome back, rider",
+      loginTitle: "Welcome back",
       loginSub: "Sign in to arm your black box.",
-      registerTitle: "Create your rider account",
-      registerSub: "Two minutes now can save the golden hour later.",
-      registerCta: "Continue to medical profile",
-      demos: [["rider@accidiox.demo", "Rohan Sharma", "Rider · O+ · Varanasi"]]
+      registerTitle: "Create your account",
+      registerSub: "Two minutes now can save a life later.",
+      registerCta: "Continue to medical profile"
     },
     hospital: {
       tag: "Hospitals",
       title: "Crash alerts before the first phone call.",
-      lead: "Accidiox routes every confirmed two-wheeler crash to the three nearest trauma centres, with the rider's location, vitals-relevant history and blood group.",
+      lead: "Every confirmed two-wheeler crash is routed to the nearest trauma centres with the rider's location, blood group and medical notes.",
       points: [
-        ["pin", "Only the 3 nearest are alerted", "No city-wide noise. You see crashes you can actually reach."],
-        ["check", "First to claim dispatches", "The moment you accept, the other two go on standby. No duplicate ambulances."],
-        ["ambulance", "Fleet, beds and admissions", "Track your units live and mark patients admitted in one console."]
+        ["pin", "Only the nearest hospitals are alerted", "You see crashes your team can actually reach."],
+        ["check", "First to accept dispatches", "Other hospitals are locked out, so two ambulances never race to one crash."],
+        ["ambulance", "Your fleet, beds and admissions", "Track your ambulances live and close every case in one console."]
       ],
       loginTitle: "Hospital console",
       loginSub: "Sign in to your emergency desk.",
       registerTitle: "Register your hospital",
-      registerSub: "Join the Accidiox emergency network.",
-      registerCta: "Register hospital",
-      nameLabel: "Emergency desk administrator",
-      demos: [
-        ["bhu@accidiox.demo", "Sir Sunderlal Hospital", "BHU Trauma Centre · Lanka"],
-        ["apex@accidiox.demo", "Apex Super Speciality", "Mahmoorganj"],
-        ["heritage@accidiox.demo", "Heritage Hospitals", "Lanka"],
-        ["apollo@accidiox.demo", "Apollo Emergency", "Sigra"]
-      ]
+      registerSub: "Every hospital is verified before it receives any patient data.",
+      registerCta: "Submit for verification",
+      nameLabel: "Emergency desk administrator"
     },
     ambulance: {
       tag: "Crew",
       title: "Your next patient, already briefed.",
-      lead: "The Accidiox crew app puts the crash site, the patient's blood group and allergies in your hands the moment your hospital dispatches you.",
+      lead: "The crash site, the patient's blood group and allergies arrive on your phone the moment your hospital dispatches you.",
       points: [
         ["droplet", "Blood group before arrival", "Arrange the right blood and avoid drugs the patient is allergic to."],
         ["pin", "One-tap navigation", "Straight to the crash site, then back to your emergency entrance."],
@@ -56,13 +52,9 @@
       loginTitle: "Ambulance crew",
       loginSub: "Sign in to go on duty.",
       registerTitle: "Register your unit",
-      registerSub: "Link your ambulance to your hospital.",
-      registerCta: "Create crew account",
-      nameLabel: "Crew lead name",
-      demos: [
-        ["als04.bhu@accidiox.demo", "Ravi Kumar", "ALS-04 · Sir Sunderlal Hospital"],
-        ["als01.apex@accidiox.demo", "Imran Ali", "ALS-01 · Apex Super Speciality"]
-      ]
+      registerSub: "Your hospital approves your unit before you receive any case.",
+      registerCta: "Request access",
+      nameLabel: "Crew lead name"
     }
   };
   const copy = COPY[role];
@@ -74,64 +66,73 @@
     ? `<svg class="ic ic-sm" viewBox="0 0 24 24">${ICONS[name]}</svg>`
     : `<svg class="ic ic-sm"><use href="#i-${name}"/></svg>`;
 
-  // Already signed in? Go straight to the app.
-  if (S.token(role) && !params.has("switch")) {
+  // Already signed in? Go straight to the app (unless following a reset link).
+  if (S.token(role) && !params.has("switch") && !resetToken) {
     const u = S.user(role);
     location.replace(role === "rider" && u && !u.onboarded ? "onboarding.html" : nextUrl());
     return;
   }
 
   // ----- Static copy -----
-  document.title = `${role === "rider" ? "Sign in" : copy.loginTitle} · Accidiox`;
+  document.title = `${copy.loginTitle} · Accidiox`;
   document.querySelector('meta[name="theme-color"]').content = role === "rider" ? "#f1f2f5" : "#0a0c10";
+  if (role !== "rider") document.querySelector('link[rel="manifest"]').remove();
   $("brandTag").textContent = copy.tag;
   $("storyTitle").textContent = copy.title;
   $("storyLead").textContent = copy.lead;
   $("storyPoints").innerHTML = copy.points.map(([ic, t, s]) =>
     `<li><span class="dot">${svg(ic)}</span><div><strong>${t}</strong><span>${s}</span></div></li>`).join("");
-  document.querySelectorAll("[data-role-link]").forEach((a) => a.classList.toggle("active", a.dataset.roleLink === role));
   document.querySelectorAll("[data-only]").forEach((el) => {
     if (!el.dataset.only.split(" ").includes(role)) el.remove();
   });
   if (copy.nameLabel) $("nameLabel").textContent = copy.nameLabel;
   $("registerLabel").textContent = copy.registerCta;
 
-  $("demoList").innerHTML = copy.demos.map(([email, name, sub]) => `
-    <button type="button" class="demo-item" data-email="${email}">
-      <span class="demo-avatar">${S.initials(name)}</span>
-      <span class="demo-text"><strong>${name}</strong><span>${sub}</span></span>
-      <svg class="ic ic-sm"><use href="#i-arrow"/></svg>
-    </button>`).join("");
-
-  // ----- Mode switching -----
+  // ----- Modes: login | register | forgot | reset -----
+  const FORMS = { login: "loginForm", register: "registerForm", forgot: "forgotForm", reset: "resetForm" };
   function setMode(mode) {
+    Object.entries(FORMS).forEach(([m, id]) => ($(id).hidden = m !== mode));
     document.querySelectorAll(".mode").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
-    $("loginForm").hidden = mode !== "login";
-    $("registerForm").hidden = mode !== "register";
-    $("formTitle").textContent = mode === "login" ? copy.loginTitle : copy.registerTitle;
-    $("formSub").textContent = mode === "login" ? copy.loginSub : copy.registerSub;
+    document.querySelector(".mode-tabs").classList.toggle("hidden", mode === "forgot" || mode === "reset");
+    const titles = {
+      login: [copy.loginTitle, copy.loginSub],
+      register: [copy.registerTitle, copy.registerSub],
+      forgot: ["Reset your password", "We'll email you a link to choose a new one."],
+      reset: ["Choose a new password", "You'll be signed out on every other device."]
+    }[mode];
+    $("formTitle").textContent = titles[0];
+    $("formSub").textContent = titles[1];
     showError(null);
     if (mode === "register" && role === "ambulance") loadHospitals();
   }
   document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
-  setMode(params.get("mode") === "register" ? "register" : "login");
+  $("btnForgot").addEventListener("click", () => {
+    const email = $("loginForm").email.value.trim();
+    setMode("forgot");
+    if (email) $("forgotForm").email.value = email;
+  });
+  document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", () => setMode("login")));
+  setMode(resetToken ? "reset" : params.get("mode") === "register" ? "register" : "login");
 
   // ----- Helpers -----
+  function currentForm() {
+    return Object.values(FORMS).map((id) => $(id)).find((f) => !f.hidden);
+  }
+
   function showError(message, field) {
     const box = $("formError");
     document.querySelectorAll(".input.invalid").forEach((i) => i.classList.remove("invalid"));
     if (!message) { box.hidden = true; return; }
     box.textContent = message;
     box.hidden = false;
-    const form = $("loginForm").hidden ? $("registerForm") : $("loginForm");
-    const input = field && form.querySelector(`[name="${field}"]`);
+    const input = field && currentForm().querySelector(`[name="${field}"]`);
     if (input) { input.classList.add("invalid"); input.focus(); }
   }
 
   function nextUrl() {
     const next = params.get("next");
-    // Only same-folder page names; never an absolute or protocol URL.
-    if (next && /^[a-z_]+\.html(\?[\w=&%-]*)?$/i.test(next)) return next;
+    // Only this app's own page; never another app or an absolute URL.
+    if (next && /^[a-z_]+\.html(\?[\w=&%-]*)?$/i.test(next) && next.split("?")[0] === S.HOME[role]) return next;
     return S.HOME[role];
   }
 
@@ -145,6 +146,16 @@
     S.save(role, data.token, data.user);
     if (role === "rider" && !data.user.onboarded) location.replace("onboarding.html");
     else location.replace(nextUrl());
+  }
+
+  function passwordProblem(pw) {
+    if (pw.length < 8) return "Password must be at least 8 characters.";
+    if (!/[A-Za-z]/.test(pw) || !/[0-9]/.test(pw)) return "Use at least one letter and one number in your password.";
+    return null;
+  }
+
+  async function call(action, body) {
+    return S.api(role, `api/auth.php?action=${action}`, { method: "POST", body });
   }
 
   document.querySelectorAll("[data-reveal]").forEach((b) => b.addEventListener("click", () => {
@@ -161,15 +172,6 @@
   });
 
   // ----- Sign in -----
-  $("demoList").addEventListener("click", (e) => {
-    const item = e.target.closest(".demo-item");
-    if (!item) return;
-    const f = $("loginForm");
-    f.email.value = item.dataset.email;
-    f.password.value = "demo1234";
-    f.requestSubmit();
-  });
-
   $("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.target;
@@ -177,14 +179,58 @@
     if (!f.password.value) return showError("Enter your password.", "password");
     busy(f, true);
     try {
-      const { ok, data } = await S.api(role, "api/auth.php?action=login", {
-        method: "POST",
-        body: { role, email: f.email.value.trim(), password: f.password.value }
-      });
+      const { ok, data } = await call("login", { role, email: f.email.value.trim(), password: f.password.value });
       if (ok) return afterAuth(data);
       showError(data.message || "Couldn't sign in.", data.field);
     } catch (err) {
-      showError("Can't reach the Accidiox server. Check your connection.");
+      showError("Can't reach Accidiox right now. Check your connection.");
+    }
+    busy(f, false);
+  });
+
+  // ----- Forgot password -----
+  $("forgotForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const email = f.email.value.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) return showError("Enter the email you signed up with.", "email");
+    busy(f, true);
+    try {
+      const { ok, data } = await call("forgot_password", { role, email });
+      if (ok) {
+        showError(null);
+        const n = $("forgotNotice");
+        n.textContent = data.message;
+        n.hidden = false;
+      } else {
+        showError(data.message || "Couldn't send the email. Try again.", data.field);
+      }
+    } catch (err) {
+      showError("Can't reach Accidiox right now. Check your connection.");
+    }
+    busy(f, false);
+  });
+
+  // ----- Reset password -----
+  $("resetForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const problem = passwordProblem(f.password.value);
+    if (problem) return showError(problem, "password");
+    if (f.password.value !== f.confirm.value) return showError("The two passwords don't match.", "confirm");
+    busy(f, true);
+    try {
+      const { ok, data } = await call("reset_password", { token: resetToken, password: f.password.value });
+      if (ok) {
+        S.clear(role);
+        history.replaceState(null, "", `auth.html?role=${role}`);
+        setMode("login");
+        $("formSub").textContent = "Password updated. Sign in with your new password.";
+      } else {
+        showError(data.message || "Couldn't reset the password.", data.field);
+      }
+    } catch (err) {
+      showError("Can't reach Accidiox right now. Check your connection.");
     }
     busy(f, false);
   });
@@ -195,8 +241,18 @@
     if (!sel || sel.dataset.loaded) return;
     try {
       const { data } = await S.api(role, "api/auth.php?action=hospitals");
-      sel.innerHTML = `<option value="">Select your hospital</option>` +
-        (data.hospitals || []).map((h) => `<option value="${h.id}">${h.name}${h.city ? ` · ${h.city}` : ""}</option>`).join("");
+      const list = data.hospitals || [];
+      sel.innerHTML = "";
+      const first = document.createElement("option");
+      first.value = "";
+      first.textContent = list.length ? "Select your hospital" : "No verified hospitals yet";
+      sel.appendChild(first);
+      list.forEach((h) => {
+        const o = document.createElement("option");
+        o.value = h.id;
+        o.textContent = h.city ? `${h.name} · ${h.city}` : h.name;
+        sel.appendChild(o);
+      });
       sel.dataset.loaded = "1";
     } catch (e) {
       sel.innerHTML = `<option value="">Couldn't load hospitals</option>`;
@@ -248,15 +304,16 @@
     if (body.name.length < 2) return showError("Enter your name.", "name");
     if (!/^\S+@\S+\.\S+$/.test(body.email)) return showError("Enter a valid email.", "email");
     if (body.phone.replace(/\D/g, "").length < 10) return showError("Enter a valid 10-digit phone number.", "phone");
-    if (body.password.length < 8) return showError("Password must be at least 8 characters.", "password");
+    const problem = passwordProblem(body.password);
+    if (problem) return showError(problem, "password");
 
     busy(f, true);
     try {
-      const { ok, data } = await S.api(role, "api/auth.php?action=register", { method: "POST", body });
+      const { ok, data } = await call("register", body);
       if (ok) return afterAuth(data);
       showError(data.message || "Couldn't create the account.", data.field === "location" ? "latitude" : data.field);
     } catch (err) {
-      showError("Can't reach the Accidiox server. Check your connection.");
+      showError("Can't reach Accidiox right now. Check your connection.");
     }
     busy(f, false);
   });

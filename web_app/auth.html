@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="css/auth.css?v=1" />
+  <link rel="stylesheet" href="css/auth.css?v=3" />
   <script>
     // Pick the theme before first paint to avoid a light/dark flash.
     (function () {
@@ -36,11 +36,11 @@
   <div class="auth">
     <!-- Brand / story panel -->
     <aside class="story">
-      <a class="brand" href="index.html">
+      <div class="brand">
         <span class="brand-mark"><svg class="ic"><use href="#i-logo"/></svg></span>
         <span class="brand-name">Accidiox</span>
         <span class="brand-tag" id="brandTag">Rider</span>
-      </a>
+      </div>
 
       <div class="story-body">
         <h1 id="storyTitle">Ride with a guardian.</h1>
@@ -48,17 +48,12 @@
         <ul class="story-points" id="storyPoints"></ul>
       </div>
 
-      <div class="story-foot" id="storyFoot">Built for the golden hour · KAYA Buildathon, IIT (BHU) Varanasi</div>
+      <div class="story-foot" id="storyFoot"></div>
     </aside>
 
     <!-- Form panel -->
     <main class="panel">
       <div class="panel-inner">
-        <div class="role-switch" role="tablist" aria-label="Account type">
-          <a href="?role=rider" data-role-link="rider"><svg class="ic ic-sm"><use href="#i-bike"/></svg>Rider</a>
-          <a href="?role=hospital" data-role-link="hospital"><svg class="ic ic-sm"><use href="#i-building"/></svg>Hospital</a>
-          <a href="?role=ambulance" data-role-link="ambulance"><svg class="ic ic-sm"><use href="#i-ambulance"/></svg>Ambulance</a>
-        </div>
 
         <header class="panel-head">
           <h2 id="formTitle">Welcome back</h2>
@@ -86,11 +81,7 @@
             </span>
           </label>
           <button type="submit" class="btn btn-primary btn-block"><span>Sign in</span><svg class="ic ic-sm"><use href="#i-arrow"/></svg></button>
-
-          <div class="demo">
-            <div class="demo-label">Demo accounts <span>password <code>demo1234</code></span></div>
-            <div class="demo-list" id="demoList"></div>
-          </div>
+          <button type="button" class="link-btn" id="btnForgot">Forgot password?</button>
         </form>
 
         <!-- Create account -->
@@ -168,7 +159,7 @@
           <label class="field">
             <span class="field-label">Password</span>
             <span class="input-wrap">
-              <input class="input" type="password" name="password" autocomplete="new-password" placeholder="At least 8 characters" />
+              <input class="input" type="password" name="password" autocomplete="new-password" placeholder="8+ characters, a letter and a number" />
               <button type="button" class="reveal" data-reveal aria-label="Show password"><svg class="ic ic-sm"><use href="#i-eye"/></svg></button>
             </span>
           </label>
@@ -176,11 +167,38 @@
           <button type="submit" class="btn btn-primary btn-block"><span id="registerLabel">Create account</span><svg class="ic ic-sm"><use href="#i-arrow"/></svg></button>
           <p class="fine" data-only="rider">Next, we'll ask for your blood group and an emergency contact. That's what the ambulance crew sees first.</p>
         </form>
+
+        <!-- Forgot password -->
+        <form id="forgotForm" class="form" novalidate hidden>
+          <label class="field">
+            <span class="field-label">Account email</span>
+            <input class="input" type="email" name="email" autocomplete="email" placeholder="you@example.com" />
+          </label>
+          <button type="submit" class="btn btn-primary btn-block"><span>Email me a reset link</span><svg class="ic ic-sm"><use href="#i-arrow"/></svg></button>
+          <div class="notice" id="forgotNotice" hidden></div>
+          <button type="button" class="link-btn" data-back>Back to sign in</button>
+        </form>
+
+        <!-- Reset password (opened from the email link) -->
+        <form id="resetForm" class="form" novalidate hidden>
+          <label class="field">
+            <span class="field-label">New password</span>
+            <span class="input-wrap">
+              <input class="input" type="password" name="password" autocomplete="new-password" placeholder="8+ characters, a letter and a number" />
+              <button type="button" class="reveal" data-reveal aria-label="Show password"><svg class="ic ic-sm"><use href="#i-eye"/></svg></button>
+            </span>
+          </label>
+          <label class="field">
+            <span class="field-label">Confirm new password</span>
+            <input class="input" type="password" name="confirm" autocomplete="new-password" placeholder="Type it again" />
+          </label>
+          <button type="submit" class="btn btn-primary btn-block"><span>Save new password</span><svg class="ic ic-sm"><use href="#i-arrow"/></svg></button>
+        </form>
       </div>
     </main>
   </div>
 
-  <script src="js/session.js?v=1"></script>
-  <script src="js/auth.js?v=1"></script>
+  <script src="js/session.js?v=2"></script>
+  <script src="js/auth.js?v=2"></script>
 </body>
 </html>

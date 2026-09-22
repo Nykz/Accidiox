@@ -221,3 +221,14 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
   .field-row { grid-template-columns: 1fr; }
   .field-row.compact { grid-template-columns: 1fr 1fr; }
 }
+
+/* Forgot / reset password */
+.link-btn { align-self: center; padding: 6px 8px; font-size: 13px; font-weight: 500; color: var(--brand); border-radius: 8px; }
+.link-btn:hover { background: var(--brand-soft); }
+.notice {
+  padding: 12px 14px; border-radius: 10px; font-size: 13px; line-height: 1.5;
+  background: rgba(22, 163, 74, 0.1); color: var(--success);
+}
+.mode-tabs.hidden { display: none; }
+.story-foot:empty { display: none; }
+.panel-head:has(+ .mode-tabs.hidden) { margin-bottom: 20px; }

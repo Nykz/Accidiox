@@ -1,13 +1,13 @@
 // Rider account features layered on top of app.js:
-//  - Settings profile card (medical profile, edit, sign out)
+//  - Settings: medical profile card and emergency history
 //  - Emergency contact from the profile kept as the primary SOS contact
-//  - Live "help is on the way" tracking after a confirmed crash: which
-//    hospital accepted, which ambulance, ETA, and the ambulance on the map.
+//  - Live "help is on the way" card + system notifications after a crash:
+//    which hospital accepted, which ambulance, ETA, ambulance on the map.
 (function () {
   const S = window.AccidioxSession;
   const POLL_MS = 4000;
   const STEPS = [
-    ["DISPATCHED", "Accepted"],
+    ["COMING", "Accepted"],
     ["EN_ROUTE", "En route"],
     ["AT_SCENE", "Arrived"],
     ["PICKED_UP", "To hospital"],
@@ -15,7 +15,7 @@
   ];
   const DISMISS_KEY = "accidiox.rider.dismissedIncident";
 
-  const track = { id: null, timer: null, lastStatus: null, alerted: [], incident: null, fitted: false };
+  const track = { id: null, timer: null, lastPhase: null, incident: null, fitted: false };
   let ambMarker = null;
   let hospMarker = null;
 
@@ -42,6 +42,24 @@
     let d = String(p || "").replace(/\D/g, "");
     if (d.length === 10) d = "91" + d;
     return d;
+  }
+  function parseTs(ts) {
+    const m = String(ts || "").match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]) : null;
+  }
+  function fmtKm(km) {
+    const n = Number(km);
+    if (!isFinite(n)) return "";
+    return n < 10 ? `${n.toFixed(1)} km` : `${Math.round(n)} km`;
+  }
+
+  // The rider-facing phase of an incident. "HOSPITAL" = a hospital accepted
+  // but its ambulance crew hasn't accepted yet.
+  function phaseOf(inc) {
+    const s = inc.dispatch_status;
+    if (s === "UNCLAIMED") return "UNCLAIMED";
+    if (s === "DISPATCHED") return inc.assignment_status === "ACCEPTED" ? "COMING" : "HOSPITAL";
+    return s;
   }
 
   // ================= Profile card (Settings) =================
@@ -75,7 +93,7 @@
         <button class="btn btn-danger-outline" type="button" id="btnSignOut">${svg(ICON.out)}<span>Sign out</span></button>
       </div>`;
     $("btnSignOut").addEventListener("click", () => {
-      if (confirm("Sign out of Accidiox? Crash alerts won't include your medical profile until you sign in again.")) S.logout("rider");
+      if (confirm("Sign out of Accidiox? Crash alerts won't reach hospitals until you sign in again.")) S.logout("rider");
     });
   }
 
@@ -89,21 +107,83 @@
     return [{ name, phone }, ...contacts.filter((c) => c.phone !== phone)];
   }
 
+  // ================= Emergency history (Settings) =================
+  let historyLimit = 5;
+  async function loadHistory() {
+    const list = $("historyList");
+    if (!list || !S.token("rider")) return;
+    try {
+      const { ok, data } = await S.api("rider", "api/rider.php?action=history");
+      if (!ok) return;
+      renderHistory(data.history || []);
+    } catch (e) {
+      if (!list.children.length || list.textContent.includes("Loading")) list.innerHTML = `<div class="history-empty">Connect to the internet to see your history.</div>`;
+    }
+  }
+
+  function renderHistory(items) {
+    const list = $("historyList");
+    if (!items.length) {
+      list.innerHTML = `<div class="history-empty">No emergencies yet. Ride safe. If you ever crash, every step of your rescue will be saved here.</div>`;
+      return;
+    }
+    const statusText = { UNCLAIMED: ["Finding help", "open"], HOSPITAL: ["Assigning ambulance", "moving"], COMING: ["Ambulance coming", "moving"],
+      EN_ROUTE: ["Ambulance coming", "moving"], AT_SCENE: ["Ambulance arrived", "moving"], PICKED_UP: ["To hospital", "moving"], ADMITTED: ["Admitted", ""] };
+    const labels = { REPORTED: "Crash detected", ALERTED: "Nearest hospitals alerted", DISPATCHED: "Hospital accepted", ACCEPTED: "Ambulance crew accepted",
+      EN_ROUTE: "Ambulance on the way", AT_SCENE: "Ambulance arrived", PICKED_UP: "Picked up", ADMITTED: "Admitted" };
+
+    list.innerHTML = items.slice(0, historyLimit).map((inc) => {
+      const phase = phaseOf(inc);
+      const [label, cls] = statusText[phase] || [phase, ""];
+      const when = parseTs(inc.created_at);
+      const date = when ? when.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
+      const time = when ? when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
+      const hosp = inc.hospital ? inc.hospital.name : null;
+      const facts = [
+        ["Hospital", hosp || "Not assigned"],
+        ["Ambulance", inc.ambulance_unit ? `${inc.ambulance_unit}${inc.ambulance_type ? ` · ${inc.ambulance_type}` : ""}` : "—"],
+        ["Crew", inc.driver_name || "—"],
+        ["Admitted", inc.admitted_at ? parseTs(inc.admitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"]
+      ];
+      const steps = (inc.timeline || []).map((e) => {
+        const t = parseTs(e.at);
+        return `<li><time>${t ? t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : ""}</time><span>${esc(labels[e.status] || e.status)}</span></li>`;
+      }).join("");
+      return `
+        <details class="history-item">
+          <summary>
+            <span class="history-icon ${cls}">${svg(phase === "ADMITTED" ? ICON.hosp : ICON.amb)}</span>
+            <span class="history-main">
+              <strong>${esc(hosp || inc.location_name || "Emergency")}</strong>
+              <span>${esc(date)} · ${esc(time)} · ${esc(inc.location_name || "")}</span>
+            </span>
+            <span class="history-status ${cls}">${esc(label)}</span>
+          </summary>
+          <div class="history-body">
+            <div class="history-facts">${facts.map(([k, v]) => `<div><span>${k}</span><strong>${esc(v)}</strong></div>`).join("")}</div>
+            ${steps ? `<ol class="history-timeline">${steps}</ol>` : ""}
+          </div>
+        </details>`;
+    }).join("") + (items.length > historyLimit ? `<button type="button" class="history-more" id="btnHistoryMore">Show ${items.length - historyLimit} more</button>` : "");
+
+    const more = $("btnHistoryMore");
+    if (more) more.addEventListener("click", () => { historyLimit += 10; renderHistory(items); });
+  }
+
   // ================= Rescue tracking =================
   function trackIncident(id, alerted) {
     track.id = id;
-    track.alerted = alerted || [];
-    track.lastStatus = null;
+    track.lastPhase = "UNCLAIMED";
     track.fitted = false;
     try { localStorage.removeItem(DISMISS_KEY); } catch (e) {}
-    renderRescue({ id, dispatch_status: "UNCLAIMED", alerted_hospitals: track.alerted.map((a, i) => ({ name: a.name, distance_km: a.distance_km, rank: i + 1 })) });
+    renderRescue({ id, dispatch_status: "UNCLAIMED", alerted_hospitals: (alerted || []).map((a, i) => ({ name: a.name, distance_km: a.distance_km, rank: i + 1 })) });
     startPolling();
   }
 
   function startPolling() {
     clearInterval(track.timer);
-    poll();
     track.timer = setInterval(poll, POLL_MS);
+    poll();
   }
 
   async function poll() {
@@ -116,98 +196,126 @@
 
       let dismissed = null;
       try { dismissed = localStorage.getItem(DISMISS_KEY); } catch (e) {}
+      if (String(inc.id) === dismissed) return;
       if (!track.id) {
-        // Resuming after an app restart: only show crashes still in progress.
-        if (String(inc.id) === dismissed) return;
+        // Resuming after the app was reopened.
         track.id = inc.id;
-        track.lastStatus = inc.dispatch_status;
+        track.lastPhase = phaseOf(inc);
         if (!track.timer) track.timer = setInterval(poll, POLL_MS);
       }
 
-      if (track.lastStatus && track.lastStatus !== inc.dispatch_status) announce(inc);
-      track.lastStatus = inc.dispatch_status;
+      const phase = phaseOf(inc);
+      if (track.lastPhase && track.lastPhase !== phase) announce(inc, phase);
+      track.lastPhase = phase;
       track.incident = inc;
       renderRescue(inc);
       updateMap(inc);
       updateSosModal(inc);
-      if (inc.dispatch_status === "ADMITTED") {
+      if (phase === "ADMITTED") {
         clearInterval(track.timer);
         track.timer = null;
       }
     } catch (e) { /* offline: keep the last known state on screen */ }
   }
 
-  function announce(inc) {
-    const hosp = inc.claimed_by_hospital_name || "A hospital";
+  // System notification (with the Accidiox badge) + voice for every stage.
+  function announce(inc, phase) {
+    const hosp = inc.hospital ? inc.hospital.short_name : inc.claimed_by_hospital_name || "The hospital";
+    const eta = inc.eta_minutes != null ? inc.eta_minutes : null;
     const msg = {
-      DISPATCHED: [`Help is on the way`, `${hosp} is sending ${inc.ambulance_unit || "an ambulance"}. Arriving in about ${inc.eta_minutes || 10} minutes.`],
-      EN_ROUTE: [`Ambulance en route`, `${inc.ambulance_unit || "The ambulance"} is heading to you. About ${inc.eta_minutes || 10} minutes.`],
-      AT_SCENE: [`Ambulance has arrived`, `The ${hosp} crew is at your location.`],
-      PICKED_UP: [`On the way to hospital`, `Heading to ${hosp}. The emergency team is ready.`],
-      ADMITTED: [`Admitted to ${hosp}`, `You're in the emergency department.`]
-    }[inc.dispatch_status];
+      HOSPITAL: [`${hosp} accepted your emergency`, "An ambulance crew is being assigned right now."],
+      COMING: ["The ambulance is on its way", `${inc.ambulance_unit || "An ambulance"} from ${hosp}${eta ? ` is arriving in about ${eta} min` : " is heading to you"}. Stay where you are.`],
+      EN_ROUTE: ["The ambulance is arriving", `${inc.ambulance_unit || "The ambulance"} is on the road${eta ? `, about ${eta} min away` : ""}.`],
+      AT_SCENE: ["The ambulance has arrived", `The ${hosp} crew is at your location.`],
+      PICKED_UP: [`On the way to ${hosp}`, "The emergency team has been told you're coming."],
+      ADMITTED: [`Admitted to ${hosp}`, "You're in the emergency department. Get well soon."]
+    }[phase];
     if (!msg) return;
 
     if (typeof speakVoice === "function") speakVoice(`${msg[0]}. ${msg[1]}`);
-    if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
-    if ("Notification" in window && Notification.permission === "granted" && navigator.serviceWorker) {
-      navigator.serviceWorker.ready
-        .then((reg) => reg.showNotification(msg[0], { body: msg[1], icon: "assets/icons/icon-192.png", tag: `incident-${inc.id}`, renotify: true }))
-        .catch(() => {});
+    if ("vibrate" in navigator) navigator.vibrate([250, 120, 250]);
+    showSystemNotification(msg[0], msg[1], inc.id, phase === "COMING");
+  }
+
+  function showSystemNotification(title, body, incidentId, sticky) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    const options = {
+      body,
+      icon: "assets/icons/icon-192.png",
+      badge: "assets/icons/badge-96.png",
+      tag: `incident-${incidentId}`,
+      renotify: true,
+      requireInteraction: !!sticky,
+      vibrate: [250, 120, 250],
+      data: { url: "index.html" }
+    };
+    const fallback = () => { try { new Notification(title, options); } catch (e) {} };
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) => reg.showNotification(title, options)).catch(fallback);
+    } else {
+      fallback();
     }
   }
 
   function renderRescue(inc) {
     const card = $("rescueCard");
     if (!card) return;
-    const status = inc.dispatch_status;
-    const stepIdx = STEPS.findIndex(([s]) => s === status);
+    const phase = phaseOf(inc);
+    const stepIdx = STEPS.findIndex(([s]) => s === phase || (phase === "DISPATCHED" && s === "COMING"));
     card.hidden = false;
-    card.className = `card rescue-card ${status === "UNCLAIMED" ? "is-waiting" : status === "ADMITTED" ? "is-done" : "is-coming"}`;
+    card.className = `card rescue-card ${phase === "UNCLAIMED" || phase === "HOSPITAL" ? "is-waiting" : phase === "ADMITTED" ? "is-done" : "is-coming"}`;
 
-    if (status === "UNCLAIMED") {
+    if (phase === "UNCLAIMED") {
       const list = (inc.alerted_hospitals || []).map((h) => `
         <li><span class="rescue-rank">${h.rank}</span><span class="rescue-hname">${esc(h.name)}</span><span class="rescue-dist">${fmtKm(h.distance_km)}</span></li>`).join("");
       card.innerHTML = `
         <div class="rescue-top">
           <span class="rescue-icon pulse">${svg(ICON.radio)}</span>
-          <div>
+          <div class="rescue-head-text">
             <div class="rescue-eyebrow">SOS sent · stay where you are</div>
             <h3>Finding the nearest ambulance</h3>
           </div>
         </div>
-        <p class="rescue-text">Your location and blood group were sent to the 3 nearest hospitals. The first one to accept will send an ambulance.</p>
+        <p class="rescue-text">Your location and blood group were sent to the nearest hospitals. The first one to accept will send an ambulance.</p>
         ${list ? `<ol class="rescue-hospitals">${list}</ol>` : ""}`;
       return;
     }
 
     const hosp = inc.hospital ? inc.hospital.short_name : inc.claimed_by_hospital_name || "Hospital";
-    const headline = {
-      DISPATCHED: "Help is on the way",
-      EN_ROUTE: "Help is on the way",
-      AT_SCENE: "Ambulance has arrived",
-      PICKED_UP: `On the way to ${hosp}`,
-      ADMITTED: `Admitted to ${hosp}`
-    }[status] || "Help is on the way";
-    const coming = status === "DISPATCHED" || status === "EN_ROUTE";
+    if (phase === "HOSPITAL") {
+      card.innerHTML = `
+        <div class="rescue-top">
+          <span class="rescue-icon pulse">${svg(ICON.hosp)}</span>
+          <div class="rescue-head-text">
+            <div class="rescue-eyebrow">${esc(hosp)} accepted</div>
+            <h3>Assigning an ambulance</h3>
+          </div>
+        </div>
+        <p class="rescue-text">The hospital has taken your case and is confirming an ambulance crew. This takes less than a minute.</p>`;
+      return;
+    }
+
+    const headline = { COMING: "Help is on the way", EN_ROUTE: "The ambulance is arriving", AT_SCENE: "Ambulance has arrived",
+      PICKED_UP: `On the way to ${hosp}`, ADMITTED: `Admitted to ${hosp}` }[phase] || "Help is on the way";
+    const coming = phase === "COMING" || phase === "EN_ROUTE";
     const crewPhone = String(inc.driver_phone || "").replace(/[^\d+]/g, "");
 
     card.innerHTML = `
       <div class="rescue-top">
-        <span class="rescue-icon">${svg(status === "ADMITTED" ? ICON.check : ICON.amb)}</span>
+        <span class="rescue-icon">${svg(phase === "ADMITTED" ? ICON.check : ICON.amb)}</span>
         <div class="rescue-head-text">
           <div class="rescue-eyebrow">${esc(hosp)}</div>
           <h3>${esc(headline)}</h3>
         </div>
         ${coming ? `<div class="rescue-eta"><strong>${inc.eta_minutes != null ? inc.eta_minutes : "—"}</strong><span>min</span></div>` : ""}
-        ${status === "ADMITTED" ? `<button class="rescue-close" type="button" id="btnDismissRescue" aria-label="Dismiss">${svg(ICON.x)}</button>` : ""}
+        ${phase === "ADMITTED" ? `<button class="rescue-close" type="button" id="btnDismissRescue" aria-label="Dismiss">${svg(ICON.x)}</button>` : ""}
       </div>
 
       <div class="rescue-steps">
-        ${STEPS.map(([s, label], i) => `<div class="rescue-step ${i < stepIdx || (i === stepIdx && status === "ADMITTED") ? "done" : i === stepIdx ? "current" : ""}"><i></i><span>${label}</span></div>`).join("")}
+        ${STEPS.map(([s, label], i) => `<div class="rescue-step ${i < stepIdx || (i === stepIdx && phase === "ADMITTED") ? "done" : i === stepIdx ? "current" : ""}"><i></i><span>${label}</span></div>`).join("")}
       </div>
 
-      ${status !== "ADMITTED" ? `
+      ${phase !== "ADMITTED" ? `
       <div class="rescue-unit">
         <span class="rescue-unit-icon">${svg(ICON.amb)}</span>
         <div class="rescue-unit-text">
@@ -219,28 +327,28 @@
 
       <p class="rescue-text">${coming
         ? "Stay still if you can. The crew already has your blood group and allergies."
-        : status === "AT_SCENE" ? "The crew is with you now."
-        : status === "PICKED_UP" ? "The emergency department has been told you're coming."
-        : "Your family has been kept informed. Get well soon."}</p>`;
+        : phase === "AT_SCENE" ? "The crew is with you now."
+        : phase === "PICKED_UP" ? "The emergency department has been told you're coming."
+        : "Your family has been kept informed. You can find this rescue anytime in Settings → My Emergencies."}</p>`;
 
     const dismiss = $("btnDismissRescue");
     if (dismiss) dismiss.addEventListener("click", () => {
       card.hidden = true;
+      card.innerHTML = "";
       try { localStorage.setItem(DISMISS_KEY, String(inc.id)); } catch (e) {}
+      clearInterval(track.timer);
+      track.timer = null;
+      track.id = null;
       removeMapLayers();
+      loadHistory();
     });
-  }
-
-  function fmtKm(km) {
-    const n = Number(km);
-    if (!isFinite(n)) return "";
-    return n < 10 ? `${n.toFixed(1)} km` : `${Math.round(n)} km`;
   }
 
   // Ambulance + destination hospital on the home mini-map.
   function updateMap(inc) {
     if (typeof liveMap === "undefined" || !liveMap || typeof L === "undefined") return;
-    if (inc.dispatch_status === "ADMITTED" || inc.dispatch_status === "UNCLAIMED") { removeMapLayers(); return; }
+    const phase = phaseOf(inc);
+    if (["ADMITTED", "UNCLAIMED", "HOSPITAL"].includes(phase)) { removeMapLayers(); return; }
 
     if (inc.hospital && !hospMarker) {
       hospMarker = L.marker([inc.hospital.latitude, inc.hospital.longitude], {
@@ -276,7 +384,9 @@
     const name = $("sosSentHospitalName");
     const sub = $("sosSentHospitalSub");
     if (name) name.textContent = inc.hospital ? inc.hospital.name : inc.claimed_by_hospital_name;
-    if (sub) sub.textContent = `${inc.ambulance_unit || "Ambulance"} dispatched · ETA ${inc.eta_minutes != null ? inc.eta_minutes : "~10"} min`;
+    if (sub) sub.textContent = phaseOf(inc) === "HOSPITAL"
+      ? "Accepted your emergency · assigning an ambulance"
+      : `${inc.ambulance_unit || "Ambulance"} on the way · ETA ${inc.eta_minutes != null ? inc.eta_minutes : "~10"} min`;
   }
 
   // ================= Boot =================
@@ -285,6 +395,12 @@
   document.addEventListener("DOMContentLoaded", () => {
     renderProfileCard();
     poll(); // resume tracking if a crash is still in progress
+    const navSettings = $("navSettings");
+    if (navSettings) navSettings.addEventListener("click", loadHistory);
+    loadHistory();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && track.id) poll();
   });
   window.addEventListener("accidiox:user", renderProfileCard);
 })();

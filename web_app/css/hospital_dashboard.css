@@ -732,3 +732,50 @@ h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
   .facility-switcher { flex: 1; min-width: 0; }
   .facility-trigger { width: 100%; }
 }
+
+/* ================= Own fleet (replaces the regional network) ================= */
+.fleet-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; padding: 0 12px 12px; max-height: 190px; overflow-y: auto; }
+.fleet-empty { grid-column: 1 / -1; padding: 12px; border-radius: var(--radius); background: var(--surface-2); color: var(--text-2); font-size: 12.5px; }
+.fleet-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius);
+  background: var(--surface-2); border: 1px solid var(--border); min-width: 0;
+}
+.fleet-item.pending { border-color: rgba(245,165,36,.35); background: linear-gradient(180deg, var(--warning-soft), transparent), var(--surface-2); }
+.fleet-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex-shrink: 0; }
+.fleet-dot.available { background: var(--success); box-shadow: 0 0 0 3px var(--success-soft); }
+.fleet-dot.assigned { background: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.fleet-dot.pending { background: var(--warning); }
+.fleet-text { min-width: 0; flex: 1; }
+.fleet-text strong { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; font-family: var(--mono); }
+.fleet-text span { display: block; font-size: 11.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fleet-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.mini-btn {
+  height: 26px; padding: 0 9px; border-radius: 6px; font-size: 11.5px; font-weight: 600;
+  background: var(--surface-3); color: var(--text-2); border: 1px solid var(--border-strong);
+}
+.mini-btn:hover { color: var(--text); }
+.mini-btn.ok { background: var(--success); color: #062b1a; border-color: transparent; }
+.mini-btn.icon { width: 26px; padding: 0; display: grid; place-items: center; }
+
+/* ================= Waiting for a crew to accept ================= */
+.accept-wait { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.accept-ring { position: relative; width: 52px; height: 52px; flex-shrink: 0; }
+.accept-ring svg { width: 52px; height: 52px; transform: rotate(-90deg); }
+.accept-ring circle { fill: none; stroke-width: 4; }
+.accept-ring .track { stroke: var(--surface-3); }
+.accept-ring .bar { stroke: var(--brand); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.accept-ring strong { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--mono); font-size: 14px; font-weight: 600; }
+.accept-text strong { display: block; font-size: 14px; font-weight: 600; }
+.accept-text span { font-size: 12px; color: var(--text-2); }
+.action-card.warn { border-color: rgba(245,165,36,.4); background: linear-gradient(180deg, rgba(245,165,36,.08), rgba(245,165,36,.02)); }
+
+/* ================= Hospital awaiting verification ================= */
+.verify-screen {
+  position: fixed; inset: 60px 0 0; z-index: 1050; background: var(--bg);
+  display: grid; place-items: center; padding: 24px;
+}
+.verify-card { max-width: 460px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.verify-icon { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; background: var(--warning-soft); color: var(--warning); }
+.verify-icon .ic { width: 26px; height: 26px; }
+.verify-card h2 { font-size: 20px; }
+.verify-card p { color: var(--text-2); font-size: 13.5px; line-height: 1.6; }

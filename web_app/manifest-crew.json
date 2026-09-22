@@ -1,0 +1,16 @@
+{
+  "name": "Accidiox Crew",
+  "short_name": "Accidiox Crew",
+  "description": "Ambulance crew app: receive crash dispatches, patient blood group and live navigation.",
+  "id": "/ambulance.html",
+  "start_url": "ambulance.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0c10",
+  "theme_color": "#0a0c10",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

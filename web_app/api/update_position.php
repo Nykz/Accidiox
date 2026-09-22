@@ -1,36 +1,18 @@
 <?php
-require_once 'db_config.php';
-
-// One bike, one row (id=1) — this is the rider app's heartbeat, called
-// every few seconds while GPS is active, so the admin portal can show a
-// truly live position instead of only past incidents.
-$input = json_decode(file_get_contents('php://input'), true);
-if (!$input) {
-    $input = $_POST;
-}
-
-$latitude  = isset($input['latitude']) ? floatval($input['latitude']) : null;
-$longitude = isset($input['longitude']) ? floatval($input['longitude']) : null;
-$speed_kmh = isset($input['speed_kmh']) ? floatval($input['speed_kmh']) : 0.0;
-$status    = isset($input['status']) ? $conn->real_escape_string($input['status']) : 'SAFE';
-
-if ($latitude === null || $longitude === null) {
-    http_response_code(400);
-    echo json_encode(["status" => "error", "message" => "latitude and longitude are required"]);
-    exit();
-}
-
-$sql = "INSERT INTO live_status (id, latitude, longitude, speed_kmh, status)
-        VALUES (1, $latitude, $longitude, $speed_kmh, '$status')
-        ON DUPLICATE KEY UPDATE
-          latitude = $latitude, longitude = $longitude, speed_kmh = $speed_kmh, status = '$status'";
-
-if ($conn->query($sql) === TRUE) {
-    echo json_encode(["status" => "success"]);
-} else {
-    http_response_code(500);
-    echo json_encode(["status" => "error", "message" => $conn->error]);
-}
-
-$conn->close();
-?>
+// Live heartbeat from the rider app while GPS is active.
+require_once __DIR__ . '/lib/bootstrap.php';
+require_post();
+$rider = require_role($conn, 'rider');
+$uid = (int) $rider['id'];
+rate_limit($conn, "pos:$uid", 40, 60, "Too many position updates.");
+$in = read_json();
+$lat = isset($in['latitude']) && is_numeric($in['latitude']) ? (float) $in['latitude'] : null;
+$lon = isset($in['longitude']) && is_numeric($in['longitude']) ? (float) $in['longitude'] : null;
+if (!valid_coords($lat, $lon)) fail("latitude and longitude are required");
+$speed = isset($in['speed_kmh']) && is_numeric($in['speed_kmh']) ? max(0, min(300, (float) $in['speed_kmh'])) : 0.0;
+$status = in_array($in['status'] ?? '', ['SAFE', 'CRASH', 'CRASH_DETECTED', 'SOS'], true) ? $in['status'] : 'SAFE';
+db_exec($conn, "INSERT INTO rider_live (user_id, latitude, longitude, speed_kmh, status, updated_at) VALUES (?,?,?,?,?,?)
+                ON DUPLICATE KEY UPDATE latitude = VALUES(latitude), longitude = VALUES(longitude), speed_kmh = VALUES(speed_kmh),
+                status = VALUES(status), updated_at = VALUES(updated_at)",
+    [$uid, $lat, $lon, $speed, $status, now_ts()]);
+json_out(["status" => "success"]);

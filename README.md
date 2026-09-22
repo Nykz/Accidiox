@@ -21,7 +21,7 @@ Full architecture, algorithms, GATT contract, and pinout are documented in
 | [`firmware/esp32_blackbox_industrial`](firmware/esp32_blackbox_industrial) | Production ESP32 firmware — the one to flash. |
 | [`firmware/blackbox_gsm_standalone`](firmware/blackbox_gsm_standalone) | Optional autonomous variant with onboard 4G LTE + GPS, works even if the rider's phone is off. |
 | [`firmware/legacy_prototypes`](firmware/legacy_prototypes) | Earlier OLED-based prototype iterations, kept for history. |
-| [`web_app`](web_app) | The rider's PWA dashboard (`index.html`) + the incident investigation portal (`admin.html`) + PHP/MySQL backend. |
+| [`web_app`](web_app) | Three apps on one PHP/MySQL backend: the rider app (`index.html`), the hospital console (`hospital_dashboard.html`) and the ambulance crew app (`ambulance.html`). |
 | [`docs`](docs) | Pitch deck outline, video script, and UI screenshots. |
 | [`media`](media) | Demo video. |
 

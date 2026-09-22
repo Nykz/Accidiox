@@ -1,16 +1,7 @@
 <?php
-require_once 'db_config.php';
-
-$sql = "SELECT latitude, longitude, speed_kmh, status, updated_at,
-        TIMESTAMPDIFF(SECOND, updated_at, NOW()) AS seconds_ago
-        FROM live_status WHERE id = 1";
-$result = $conn->query($sql);
-
-if ($result && $row = $result->fetch_assoc()) {
-    echo json_encode(["status" => "success", "data" => $row]);
-} else {
-    echo json_encode(["status" => "success", "data" => null]);
-}
-
-$conn->close();
-?>
+// The signed-in rider's own last live position.
+require_once __DIR__ . '/lib/bootstrap.php';
+$rider = require_role($conn, 'rider');
+$row = db_one($conn, "SELECT latitude, longitude, speed_kmh, status, updated_at FROM rider_live WHERE user_id = ?", [(int) $rider['id']]);
+if ($row) $row['seconds_ago'] = max(0, time() - strtotime($row['updated_at']));
+json_out(["status" => "success", "data" => $row]);

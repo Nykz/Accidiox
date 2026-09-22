@@ -12,14 +12,9 @@
 // recipient, that contact is reported back as "failed" so the frontend can
 // fall back to opening a wa.me link for them instead, rather than silently
 // losing the alert.
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Content-Type: application/json");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit();
-}
+require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/sos.php';
+[$rider, $incident, $contacts] = sos_guard($conn, 'whatsapp');
 
 if (!file_exists(__DIR__ . '/meta_whatsapp_config.php')) {
     http_response_code(200);
@@ -28,19 +23,12 @@ if (!file_exists(__DIR__ . '/meta_whatsapp_config.php')) {
 }
 require_once 'meta_whatsapp_config.php';
 
-$input = json_decode(file_get_contents('php://input'), true);
-$contacts       = isset($input['contacts']) && is_array($input['contacts']) ? $input['contacts'] : [];
-$templateParams = isset($input['templateParams']) && is_array($input['templateParams']) ? $input['templateParams'] : [];
-
-if (count($contacts) === 0 && file_exists(__DIR__ . '/db_config.php')) {
-    require_once 'db_config.php';
-    $res = $conn->query("SELECT name, phone FROM `emergency_contacts` ORDER BY is_primary DESC, id ASC");
-    if ($res) {
-        while ($row = $res->fetch_assoc()) {
-            $contacts[] = ["name" => $row['name'], "phone" => $row['phone']];
-        }
-    }
-}
+$input = read_json();
+// Recipients come only from the rider's saved contacts (sos_guard); the
+// five template slots are plain text, capped in length.
+$templateParams = isset($input['templateParams']) && is_array($input['templateParams'])
+    ? array_map('sos_text', array_slice(array_values($input['templateParams']), 0, 5))
+    : [];
 
 if (count($contacts) === 0 || count($templateParams) === 0) {
     http_response_code(400);

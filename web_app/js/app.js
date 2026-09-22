@@ -13,6 +13,23 @@ function contactsRequest(options = {}) {
   return fetch("api/contacts.php", { ...options, headers });
 }
 
+function escHtml(v) {
+  return String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
+}
+
+// Every call to our own API carries the rider token; the server refuses
+// anonymous requests.
+(function () {
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = (input, init = {}) => {
+    const token = window.AccidioxSession && AccidioxSession.token("rider");
+    if (token && typeof input === "string" && input.startsWith("api/")) {
+      init = { ...init, headers: { ...(init.headers || {}), "X-Auth-Token": token } };
+    }
+    return nativeFetch(input, init);
+  };
+})();
+
 const CONFIG = {
   countdownDuration: 20,
   wampApiUrl: "api/log_accident.php"
@@ -310,7 +327,7 @@ async function loadIncidentLogs() {
           <div class="incident-log-row"><span class="incident-log-row-label">Tilt</span><span><b>${log.tilt_angle}&deg;</b></span></div>
           <div class="incident-log-row"><span class="incident-log-row-label">Speed</span><span>${log.speed_kmh} km/h</span></div>
           <div class="incident-log-row"><span class="incident-log-row-label">Location</span><span><a class="map-link" href="https://maps.google.com/?q=${log.latitude},${log.longitude}" target="_blank">${log.latitude ? String(log.latitude).substring(0, 6) : "0"}, ${log.longitude ? String(log.longitude).substring(0, 6) : "0"}</a></span></div>
-          <div class="incident-log-row"><span class="incident-log-row-label">Hospital</span><span>${log.nearest_hospital}</span></div>
+          <div class="incident-log-row"><span class="incident-log-row-label">Hospital</span><span>${escHtml(log.nearest_hospital)}</span></div>
         `;
         elLogList.appendChild(card);
 
@@ -326,7 +343,7 @@ async function loadIncidentLogs() {
             <b>Incident #${log.id}</b><br/>
             <b>Status:</b> ${log.status}<br/>
             <b>Tilt Angle:</b> ${log.tilt_angle}&deg;<br/>
-            <b>Hospital:</b> ${log.nearest_hospital}<br/>
+            <b>Hospital:</b> ${escHtml(log.nearest_hospital)}<br/>
             <small>${log.timestamp}</small>
           `);
           incidentMarkers.push(marker);
@@ -436,11 +453,6 @@ async function loadContacts() {
     saveContacts();
   }
 
-  if (appState.contacts.length === 0) {
-    appState.contacts = [{ name: "My Phone (Verification Test)", phone: "917086249545" }];
-    saveContacts();
-  }
-
   renderContacts();
 }
 
@@ -507,7 +519,7 @@ function renderContacts() {
       <div class="contact-avatar">${initial}</div>
       <div class="contact-body">
         <div class="contact-name-row">
-          <span class="contact-name">${contact.name}</span>
+          <span class="contact-name">${escHtml(contact.name)}</span>
           ${index === 0 ? '<span class="contact-primary-tag">Primary</span>' : ""}
         </div>
         <div class="contact-phone">+${contact.phone}</div>
@@ -1065,7 +1077,9 @@ function executeSosDispatch(crashData) {
   const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const nowDate = new Date().toLocaleDateString();
 
-  syncToDatabase({
+  // The crash must be on record before the alert channels fire: the server
+  // only sends WhatsApp / calls / email for a crash this rider just reported.
+  const logged = syncToDatabase({
     status: "CONFIRMED_CRASH",
     tilt_angle: crashData.tilt || 60,
     roll_angle: crashData.roll || 55,
@@ -1110,6 +1124,7 @@ _This alert was generated automatically by the Smart Blackbox Safety System._`;
     appState.nearestPolice
   ];
 
+  logged.finally(() => {
   // 1. WhatsApp Cloud SOS (Meta Cloud API)
   dispatchWhatsAppToContacts(waText, templateParams);
 
@@ -1131,6 +1146,7 @@ _This alert was generated automatically by the Smart Blackbox Safety System._`;
     locationName: appState.currentLocationName,
     hospitalName: appState.nearestHospital,
     contacts: appState.contacts
+  });
   });
 }
 
@@ -1234,7 +1250,7 @@ function showSosSentConfirmation(results, message, globalError) {
     item.innerHTML = `
       <div class="sos-sent-row-header">
         <div class="sos-sent-contact-info">
-          <span class="sos-sent-name">${contact.name}</span>
+          <span class="sos-sent-name">${escHtml(contact.name)}</span>
           <span class="sos-sent-phone">+${contact.phone}</span>
         </div>
         <span class="sos-status-tag ${isSent ? 'sent' : 'failed'}">
@@ -1257,15 +1273,17 @@ function showSosSentConfirmation(results, message, globalError) {
     elSosSentContactsList.appendChild(item);
   });
 
-  const TEST_EMERGENCY_PHONE = "+917086249545";
+  // Nearest hospital's own number when the map data has one; otherwise the
+  // national ambulance line.
+  const hospitalPhone = String(appState.nearestHospitalPhone || "").replace(/[^\d+]/g, "") || "108";
   const btnCallNearestHospital = document.getElementById("btnCallNearestHospital");
   const labelCallNearestHospital = document.getElementById("labelCallNearestHospital");
   if (btnCallNearestHospital) {
-    btnCallNearestHospital.href = `tel:${TEST_EMERGENCY_PHONE}`;
+    btnCallNearestHospital.href = `tel:${hospitalPhone}`;
     if (labelCallNearestHospital) {
       labelCallNearestHospital.textContent = (appState.nearestHospital && !appState.nearestHospital.startsWith("Locating"))
-        ? `Call ${appState.nearestHospital} (${TEST_EMERGENCY_PHONE})`
-        : `Call Hospital Helpline (${TEST_EMERGENCY_PHONE})`;
+        ? `Call ${appState.nearestHospital}`
+        : `Call Ambulance Helpline (108)`;
     }
   }
 
@@ -1275,16 +1293,12 @@ function showSosSentConfirmation(results, message, globalError) {
 // 8. Database Sync
 async function syncToDatabase(payload) {
   try {
-    // The rider token links the crash to their medical profile (blood
-    // group, allergies) for the hospital + ambulance. Logging still works
-    // without it, so an expired session can never block an SOS.
-    const headers = { "Content-Type": "application/json" };
-    const token = window.AccidioxSession && AccidioxSession.token("rider");
-    if (token) headers["X-Auth-Token"] = token;
-
+    // The rider token (added by the fetch wrapper above) links the crash to
+    // their medical profile for the hospital + ambulance. Sessions slide for
+    // 180 days, so an active rider never gets logged out mid-ride.
     const res = await fetch(CONFIG.wampApiUrl, {
       method: "POST",
-      headers,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...payload, location_name: appState.currentLocationName })
     });
     const data = await res.json();

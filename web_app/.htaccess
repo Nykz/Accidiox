@@ -1,0 +1,43 @@
+# Accidiox web app — security hardening for Apache (Hostinger / XAMPP).
+
+# No directory listings.
+Options -Indexes
+
+# Force HTTPS on the live site (skipped on localhost).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP:X-Forwarded-Proto} !https
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Never serve source, schema, notes or backups.
+<FilesMatch "\.(sql|md|log|bak|ino|ini|env|sh|example\.php)$">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^(\.git|\.env|composer\.(json|lock)|package(-lock)?\.json)">
+    Require all denied
+</FilesMatch>
+# Secrets live in *_config.php; they are only ever included by other PHP files.
+<FilesMatch "_config\.php$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), payment=(), usb=(), geolocation=(self), bluetooth=(self)"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://server.arcgisonline.com https://unpkg.com; connect-src 'self' blob: data: https://cdn.jsdelivr.net https://unpkg.com; worker-src 'self' blob:; manifest-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    Header always unset X-Powered-By
+</IfModule>
+
+# Keep the app shell fresh (the service worker handles offline).
+<IfModule mod_headers.c>
+    <FilesMatch "\.(html|js|css|json)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>

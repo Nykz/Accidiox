@@ -1,0 +1,15 @@
+{
+  "name": "Accidiox Hospital Console",
+  "short_name": "Accidiox Hospital",
+  "description": "Emergency desk console: crash alerts, ambulance dispatch and admissions.",
+  "id": "/hospital_dashboard.html",
+  "start_url": "hospital_dashboard.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0c10",
+  "theme_color": "#0a0c10",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

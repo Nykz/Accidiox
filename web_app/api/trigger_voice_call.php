@@ -3,14 +3,9 @@
 // Directly places outbound phone calls to emergency contacts and hospital helplines
 // with automated Text-to-Speech (TTS) voice broadcasting. Zero manual clicks needed.
 
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Content-Type: application/json");
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit();
-}
+require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/sos.php';
+[$rider, $incident, $contacts] = sos_guard($conn, 'voice');
 
 $configFile = __DIR__ . '/twilio_voice_config.php';
 $isConfigured = false;
@@ -22,22 +17,12 @@ if (file_exists($configFile)) {
     }
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
+$input = read_json();
 
-$locationName = isset($input['locationName']) ? $input['locationName'] : "Varanasi";
-$hospitalName = isset($input['hospitalName']) ? $input['hospitalName'] : "Nearest Trauma Center";
-$contacts     = isset($input['contacts']) && is_array($input['contacts']) ? $input['contacts'] : [];
-
-// If no contacts passed in request, try reading from MySQL emergency_contacts
-if (count($contacts) === 0 && file_exists(__DIR__ . '/db_config.php')) {
-    require_once 'db_config.php';
-    $res = $conn->query("SELECT name, phone FROM `emergency_contacts` ORDER BY is_primary DESC, id ASC");
-    if ($res) {
-        while ($row = $res->fetch_assoc()) {
-            $contacts[] = ["name" => $row['name'], "phone" => $row['phone']];
-        }
-    }
-}
+// Contacts come only from the rider's account (sos_guard). Spoken text is
+// capped and stripped of markup.
+$locationName = sos_text($input['locationName'] ?? '', 120) ?: ($incident['location_name'] ?: "the rider's location");
+$hospitalName = sos_text($input['hospitalName'] ?? '', 120) ?: "the nearest hospital";
 
 if (count($contacts) === 0) {
     http_response_code(400);

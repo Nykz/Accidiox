@@ -4,8 +4,10 @@
 // public, git-tracked frontend JS). Passes through Geoapify's own JSON
 // response shape unchanged, so the frontend parses it exactly as if it
 // had called Geoapify directly.
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json");
+require_once __DIR__ . '/lib/bootstrap.php';
+// Only signed-in users of our own apps may spend the Geoapify quota.
+$viewer = require_any_user($conn);
+rate_limit($conn, "geo:" . $viewer['id'], 120, 600, "Too many map lookups. Please wait a moment.");
 
 if (!file_exists(__DIR__ . '/geoapify_config.php')) {
     http_response_code(200);

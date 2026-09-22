@@ -1,7 +1,8 @@
 // Accidiox Dispatch — hospital command console controller.
 // Signed in as one hospital. Shows crashes this hospital was alerted to (it
-// is one of the 3 nearest), lets it claim one with a real ambulance from its
-// fleet, tracks that ambulance live, and closes the case on admission.
+// is one of the 3 nearest), lets it claim one with an ambulance from its own
+// fleet, waits up to 60 s for that crew to accept (otherwise asks for another
+// unit), tracks the ambulance live, and closes the case on admission.
 
 const S = window.AccidioxSession;
 const ROLE = "hospital";
@@ -17,8 +18,13 @@ const STAGE_LABELS = { DISPATCHED: "Mobilised", EN_ROUTE: "En route", AT_SCENE: 
 const NEXT_ACTION = { DISPATCHED: "Mark en route", EN_ROUTE: "Mark on scene", AT_SCENE: "Mark patient picked up", PICKED_UP: "Mark admitted to ER" };
 const EVENT_TEXT = {
   REPORTED: "Crash confirmed by black box",
-  ALERTED: "SOS sent to the 3 nearest hospitals",
-  DISPATCHED: "Ambulance dispatched",
+  ALERTED: "SOS sent to the nearest hospitals",
+  DISPATCHED: "Ambulance assigned",
+  REASSIGNED: "Another ambulance assigned",
+  ACCEPTED: "Crew accepted",
+  DECLINED: "Crew declined",
+  NO_RESPONSE: "Crew didn't respond",
+  RELEASED: "Case returned to nearby hospitals",
   EN_ROUTE: "Ambulance en route",
   AT_SCENE: "Ambulance on scene",
   PICKED_UP: "Patient picked up",
@@ -30,8 +36,8 @@ const account = S.guard(ROLE);
 const state = {
   me: null,
   incidents: [],
-  hospitals: [],
   fleet: [],
+  acceptSeconds: 60,
   selectedId: null,
   filter: "all",
   soundOn: loadPref("accidiox.sound", "on") === "on",
@@ -39,13 +45,17 @@ const state = {
   online: true,
   loaded: false,
   seenIds: new Set(),
+  assignSeen: {},
+  failedUnits: {},
   pendingClaimId: null,
+  claimMode: "claim",
+  confirmFn: null,
   fitPendingFor: null
 };
 
 let map = null;
 const incidentMarkers = {};
-const hospitalMarkers = {};
+let myHospitalMarker = null;
 const routeCache = new Map();
 let routeLayer = null;
 let ambulanceMarker = null;
@@ -81,8 +91,13 @@ function icon(name, cls = "ic ic-sm") {
   return `<svg class="${cls}"><use href="#i-${name}"/></svg>`;
 }
 
+// Only our own hospital and the hospital responding to an incident are known.
 function hospitalById(id) {
-  return state.hospitals.find((h) => h.id === id) || null;
+  if (state.me && id === state.me.id) return state.me;
+  for (const i of state.incidents) {
+    if (i.hospital && i.hospital.id === id) return { id, name: i.hospital.short_name, latitude: i.hospital.latitude, longitude: i.hospital.longitude };
+  }
+  return null;
 }
 function hospitalName(id, fallback) {
   const h = hospitalById(id);
@@ -175,6 +190,14 @@ function stageIndex(inc) {
 function isDone(inc) {
   return inc.dispatch_status === "ADMITTED";
 }
+function isAccepted(inc) {
+  return inc.assignment_status === "ACCEPTED";
+}
+// Claimed by us but no crew has accepted yet: either waiting or needs a new unit.
+function assignState(inc) {
+  if (inc.dispatch_status !== "DISPATCHED" || isAccepted(inc)) return null;
+  return inc.ambulance_id ? "waiting" : "needs_unit";
+}
 function liveAmbulancePos(inc) {
   const p = inc.ambulance_position;
   if (!p || !p.last_seen) return null;
@@ -183,11 +206,17 @@ function liveAmbulancePos(inc) {
 function fleetUnit(id) {
   return state.fleet.find((a) => a.id === id) || null;
 }
+function readyUnits() {
+  return state.fleet.filter((a) => a.approved && a.status === "available");
+}
 
 function statusPill(inc) {
   const k = kindOf(inc);
   if (k === "open") return `<span class="pill pill-danger">Open</span>`;
   if (k === "mine") {
+    const a = assignState(inc);
+    if (a === "waiting") return `<span class="pill pill-warning">Awaiting crew</span>`;
+    if (a === "needs_unit") return `<span class="pill pill-danger">Assign unit</span>`;
     const label = STAGE_LABELS[inc.dispatch_status] || "Dispatched";
     return `<span class="pill ${isDone(inc) ? "pill-success" : "pill-brand"}">${label}</span>`;
   }
@@ -197,6 +226,7 @@ function statusPill(inc) {
 function sortIncidents(list) {
   const rank = (inc) => {
     const k = kindOf(inc);
+    if (k === "mine" && assignState(inc) === "needs_unit") return -1;
     if (k === "open") return 0;
     if (k === "mine" && !isDone(inc)) return 1;
     if (!isDone(inc)) return 2;
@@ -216,11 +246,12 @@ async function fetchDispatchData() {
 
     const firstLoad = !state.me;
     state.me = data.me;
-    state.hospitals = data.hospitals || [];
     state.fleet = data.fleet || [];
+    state.acceptSeconds = data.accept_seconds || 60;
     state.incidents = (data.incidents || []).filter((i) => incLatLng(i));
     setOnline(true);
     if (firstLoad) applyAccount();
+    renderVerification();
 
     const fresh = state.incidents.filter((i) => !state.seenIds.has(i.id));
     if (state.loaded) {
@@ -230,8 +261,10 @@ async function fetchDispatchData() {
         const r = freshOpen[0].my_alert_rank;
         toast("danger", "New crash SOS", `${freshOpen[0].location_name || "Unknown location"}${r ? ` · you're #${r} nearest` : ""}`, "alert");
       }
+      watchAssignments();
     }
     fresh.forEach((i) => state.seenIds.add(i.id));
+    state.incidents.forEach((i) => (state.assignSeen[i.id] = `${i.ambulance_id}|${i.assignment_status}`));
 
     if (!state.selectedId || !state.incidents.some((i) => i.id === state.selectedId)) {
       const first = sortIncidents(state.incidents)[0];
@@ -246,6 +279,29 @@ async function fetchDispatchData() {
     console.warn("[Dispatch sync]", err);
     setOnline(false);
   }
+}
+
+// When a crew declines or lets the 60 s run out, tell the desk right away
+// and open the unit picker so another ambulance can be sent.
+function watchAssignments() {
+  state.incidents.forEach((inc) => {
+    if (kindOf(inc) !== "mine") return;
+    const prev = state.assignSeen[inc.id];
+    const nowKey = `${inc.ambulance_id}|${inc.assignment_status}`;
+    if (!prev || prev === nowKey) return;
+    if (prev.endsWith("|PENDING") && inc.assignment_status === "ACCEPTED") {
+      toast("success", `${inc.ambulance_unit} accepted`, `${incCode(inc)} · the crew is on it.`, "check");
+    }
+    if (prev.endsWith("|PENDING") && !inc.ambulance_id) {
+      const why = inc.assignment_status === "DECLINED" ? "declined the case" : `didn't accept within ${state.acceptSeconds} s`;
+      const unit = fleetUnit(Number(prev.split("|")[0]));
+      if (unit) state.failedUnits[inc.id] = unit.id;
+      playAlertTone(true);
+      toast("danger", "Choose another ambulance", `${unit ? unit.unit_code : "The crew"} ${why}.`, "alert");
+      state.selectedId = inc.id;
+      if (!document.querySelector(".dialog-backdrop.show")) openClaimModal(inc.id, "reassign");
+    }
+  });
 }
 
 function setOnline(online) {
@@ -266,7 +322,7 @@ function renderAll(freshIds = []) {
   renderQueue(freshIds);
   renderMap();
   renderDetail();
-  renderNetwork();
+  renderFleet();
 }
 
 // Polling every few seconds must not rebuild DOM the user is interacting
@@ -280,6 +336,23 @@ function changed(slot, inputs) {
   return true;
 }
 
+function renderVerification() {
+  let screen = $("verifyScreen");
+  if (state.me.verified) { if (screen) screen.remove(); return; }
+  if (screen) return;
+  screen = document.createElement("div");
+  screen.id = "verifyScreen";
+  screen.className = "verify-screen";
+  screen.innerHTML = `
+    <div class="verify-card">
+      <span class="verify-icon">${icon("shield", "ic")}</span>
+      <h2>Your hospital is being verified</h2>
+      <p>To protect patients, crash alerts and medical details are only shared with verified hospitals. Our team is checking <strong>${esc(state.me.full_name)}</strong>. This page updates by itself as soon as you're approved.</p>
+      <p class="muted-sm">Meanwhile, ask your ambulance crews to install the Accidiox Crew app and request access. You'll approve them here.</p>
+    </div>`;
+  document.body.appendChild(screen);
+}
+
 function renderKpis() {
   const t = now();
   const open = state.incidents.filter((i) => kindOf(i) === "open");
@@ -291,9 +364,10 @@ function renderKpis() {
   $("kpiUnclaimed").classList.toggle("alerting", open.length > 0);
 
   setKpi("mine", mineActive.length);
-  const moving = mineActive.filter((i) => ["DISPATCHED", "EN_ROUTE"].includes(i.dispatch_status)).length;
+  const moving = mineActive.filter((i) => isAccepted(i) && ["DISPATCHED", "EN_ROUTE"].includes(i.dispatch_status)).length;
   const toEr = mineActive.filter((i) => i.dispatch_status === "PICKED_UP").length;
-  setKpi("mineFoot", mineActive.length ? `${moving} en route · ${toEr} bringing patient in` : "No units deployed");
+  const waiting = mineActive.filter((i) => assignState(i)).length;
+  setKpi("mineFoot", mineActive.length ? [`${moving} en route`, `${toEr} bringing patient in`, waiting ? `${waiting} awaiting crew` : ""].filter(Boolean).join(" · ") : "No units deployed");
 
   const claims = state.incidents
     .map((i) => [parseTs(i.created_at), parseTs(i.dispatch_timestamp)])
@@ -307,10 +381,10 @@ function renderKpis() {
     setKpi("claimTimeFoot", "Crash to dispatch");
   }
 
-  const ready = state.fleet.filter((a) => a.status === "available").length;
-  const offline = state.fleet.filter((a) => a.status === "offline").length;
-  setKpi("ambulances", `${ready}<small>/ ${state.fleet.length}</small>`, true);
-  setKpi("ambulancesFoot", `${mineActive.length} on cases${offline ? ` · ${offline} off duty` : ""}`);
+  const approved = state.fleet.filter((a) => a.approved);
+  const offline = approved.filter((a) => a.status === "offline").length;
+  setKpi("ambulances", `${readyUnits().length}<small>/ ${approved.length}</small>`, true);
+  setKpi("ambulancesFoot", approved.length ? `${approved.filter((a) => a.status === "assigned").length} on cases${offline ? ` · ${offline} off duty` : ""}` : "No crews approved yet");
 
   setKpi("beds", state.me ? state.me.er_beds_free : 0);
   setKpi("bedsFoot", state.me && state.me.er_beds_total ? `of ${state.me.er_beds_total} in emergency dept.` : "Emergency department");
@@ -348,14 +422,14 @@ function renderQueue(freshIds = []) {
 
   const list = $("incidentQueueList");
   const items = filteredIncidents();
-  if (!changed("queue", [items.map((i) => [i.id, i.dispatch_status, i.claimed_by_hospital_id]), state.filter, state.selectedId, freshIds])) return;
+  if (!changed("queue", [items.map((i) => [i.id, i.dispatch_status, i.claimed_by_hospital_id, i.assignment_status, i.ambulance_id]), state.filter, state.selectedId, freshIds])) return;
 
   if (!items.length) {
     const emptyCopy = {
-      all: ["No incidents", "You'll hear a chime when a crash happens and you're one of the 3 nearest hospitals."],
+      all: ["No incidents", "You'll hear a chime when a crash happens and your hospital is one of the nearest."],
       unclaimed: ["Nothing waiting", "Every alert sent to you has a responder."],
       mine: ["No dispatches yet", "Crashes your team responds to will show here."],
-      others: ["Nothing on standby", "Crashes claimed by nearby hospitals show here."]
+      others: ["Nothing on standby", "Crashes accepted by nearby hospitals show here."]
     }[state.filter];
     list.innerHTML = `
       <div class="empty">
@@ -371,7 +445,7 @@ function renderQueue(freshIds = []) {
     const created = parseTs(inc.created_at);
     const km = inc.my_distance_km != null ? inc.my_distance_km : distanceFrom(state.me.id, inc);
     const classes = ["inc-row", `is-${isDone(inc) ? "done" : k}`];
-    if (k === "open") classes.push("is-open");
+    if (k === "open" || assignState(inc) === "needs_unit") classes.push("is-open");
     if (inc.id === state.selectedId) classes.push("selected");
     if (freshIds.includes(inc.id)) classes.push("fresh");
 
@@ -404,9 +478,8 @@ function renderDetail() {
   const panel = $("detailPanel");
   const inc = state.incidents.find((i) => i.id === state.selectedId);
   const route = inc ? routeCache.get(routeKey(routeOrigin(inc), inc.id)) : null;
-  const unit = inc && inc.ambulance_id ? fleetUnit(inc.ambulance_id) : null;
   if (!changed("detail", [inc && { ...inc, ambulance_position: !!(inc && liveAmbulancePos(inc)) }, route && route.status,
-    state.fleet.map((a) => [a.id, a.status]), unit && unit.has_crew_app])) return;
+    state.fleet.map((a) => [a.id, a.status, a.approved])])) return;
 
   if (!inc) {
     panel.innerHTML = `
@@ -429,13 +502,12 @@ function renderDetail() {
         <span class="inc-code">${incCode(inc)}</span>
         ${statusPill(inc)}
         ${num(inc.tilt_angle) >= 80 ? `<span class="tag tag-warning">High severity</span>` : ""}
-        ${inc.is_simulated ? `<span class="tag">Simulated</span>` : ""}
       </div>
       <div class="detail-title">${esc(inc.location_name || "Unknown location")}</div>
       <div class="detail-sub">
         <span>Reported ${fmtClock(created)} · <span data-tick="ago" data-t="${created || ""}">${fmtAgo(created)}</span></span>
         <button class="copy-btn" data-copy="${coordText}" title="Copy coordinates">${icon("copy", "ic ic-xs")}${coordText}</button>
-        <a class="copy-btn" href="https://www.google.com/maps?q=${p[0]},${p[1]}" target="_blank" rel="noopener" title="Open in Google Maps">${icon("pin", "ic ic-xs")}Maps</a>
+        <a class="copy-btn" href="https://www.google.com/maps?q=${p[0]},${p[1]}" target="_blank" rel="noopener noreferrer" title="Open in Google Maps">${icon("pin", "ic ic-xs")}Maps</a>
       </div>
     </div>
 
@@ -459,11 +531,6 @@ function renderDetail() {
     </div>
 
     <div class="section">
-      <div class="section-title"><span>Hospitals alerted</span><span>3 nearest</span></div>
-      ${renderAlerted(inc)}
-    </div>
-
-    <div class="section">
       <div class="section-title">Activity</div>
       ${renderTimeline(inc)}
     </div>
@@ -484,7 +551,7 @@ function renderActionCard(inc, k, created) {
   const outOfArea = km != null && km > SERVICE_RADIUS_KM;
 
   if (k === "open") {
-    const ready = state.fleet.filter((a) => a.status === "available").length;
+    const ready = readyUnits().length;
     const eta = estimateEtaMin([state.me.latitude, state.me.longitude], inc, routeKey(state.me.id, inc.id));
     return `
       <div class="action-card open">
@@ -500,15 +567,56 @@ function renderActionCard(inc, k, created) {
         </div>
         ${outOfArea ? `<div class="action-warn">${icon("alert", "ic ic-xs")}<span>Outside your ${SERVICE_RADIUS_KM} km service radius.</span></div>` : ""}
         <button class="btn btn-danger btn-block" data-action="claim" data-id="${inc.id}" ${ready ? "" : "disabled"}>
-          ${icon("ambulance")}<span>${ready ? "Dispatch ambulance" : "No ambulance available"}</span>
+          ${icon("ambulance")}<span>${ready ? "Dispatch ambulance" : "No ambulance on duty"}</span>
         </button>
-        <p class="action-note">Sent to the 3 nearest hospitals. The first to dispatch takes the case; the others are locked out so two ambulances never race to the same crash.</p>
+        <p class="action-note">${ready
+          ? "Sent to the nearest hospitals. The first to dispatch takes the case; the others are locked out so two ambulances never race to the same crash."
+          : "None of your crews are on duty in the Accidiox Crew app. Ask a crew to go on duty to respond."}</p>
+      </div>`;
+  }
+
+  // Claimed by us, crew hasn't accepted yet.
+  const a = k === "mine" ? assignState(inc) : null;
+  if (a === "waiting") {
+    const assignedAt = parseTs(inc.assigned_at) || now();
+    const deadline = assignedAt + state.acceptSeconds * 1000;
+    return `
+      <div class="action-card mine">
+        <div class="accept-wait">
+          <div class="accept-ring" data-tick="accept" data-t="${deadline}">
+            <svg viewBox="0 0 52 52"><circle class="track" cx="26" cy="26" r="22"/><circle class="bar" cx="26" cy="26" r="22" stroke-dasharray="138.2" stroke-dashoffset="0"/></svg>
+            <strong>${Math.max(0, Math.ceil((deadline - now()) / 1000))}</strong>
+          </div>
+          <div class="accept-text">
+            <strong>Waiting for ${esc(inc.ambulance_unit)} to accept</strong>
+            <span>${esc(inc.driver_name || "The crew")} was alerted in the Crew app. If they don't accept in ${state.acceptSeconds} s, you'll pick another ambulance.</span>
+          </div>
+        </div>
+        ${crewCard(inc)}
+      </div>`;
+  }
+  if (a === "needs_unit") {
+    const ready = readyUnits().length;
+    const why = inc.assignment_status === "DECLINED" ? "The crew declined." : inc.assignment_status === "TIMEOUT" ? `The crew didn't accept within ${state.acceptSeconds} s.` : "";
+    const releaseAt = (parseTs(inc.dispatch_timestamp) || now()) + 5 * 60000;
+    return `
+      <div class="action-card warn">
+        <div class="action-row">
+          <div>
+            <div class="action-label">${esc(why)} Choose another ambulance</div>
+            <div class="action-big" style="color:var(--warning)">No crew yet</div>
+          </div>
+          <div class="action-right"><span>Returns to nearby hospitals in</span><strong class="mono" data-tick="eta" data-t="${releaseAt}">${fmtEta(releaseAt)}</strong></div>
+        </div>
+        <button class="btn btn-danger btn-block" data-action="reassign" data-id="${inc.id}" ${ready ? "" : "disabled"}>
+          ${icon("ambulance")}<span>${ready ? "Choose another ambulance" : "No ambulance on duty"}</span>
+        </button>
+        <p class="action-note">If no crew accepts within 5 minutes of your claim, the case goes back to the other nearby hospitals so the patient isn't left waiting.</p>
       </div>`;
   }
 
   const idx = stageIndex(inc);
   const dispatchedAt = parseTs(inc.dispatch_timestamp);
-  const livePos = liveAmbulancePos(inc);
   const arriveAt = etaTarget(inc);
   const stepper = `
     <div class="stepper five">
@@ -517,18 +625,6 @@ function renderActionCard(inc, k, created) {
           <div class="step-bar"></div>
           <div class="step-label">${STAGE_LABELS[s]}</div>
         </div>`).join("")}
-    </div>`;
-
-  const unit = fleetUnit(inc.ambulance_id);
-  const crew = `
-    <div class="crew">
-      <div class="crew-avatar">${icon("ambulance")}</div>
-      <div class="crew-text">
-        <strong>${esc(inc.ambulance_unit || "Ambulance")}${inc.ambulance_type ? ` · ${esc(inc.ambulance_type)}` : ""}</strong>
-        <span>${esc([inc.driver_name, inc.ambulance_vehicle].filter(Boolean).join(" · "))}</span>
-        ${livePos ? `<span class="crew-live">Live GPS</span>` : ""}
-      </div>
-      ${inc.driver_phone ? `<a class="icon-btn" href="tel:${esc(String(inc.driver_phone).replace(/[^\d+]/g, ""))}" title="Call crew">${icon("phone")}</a>` : ""}
     </div>`;
 
   let big;
@@ -555,9 +651,9 @@ function renderActionCard(inc, k, created) {
         </div>
         ${idx <= 1 && !isDone(inc) ? `<div class="progress"><span data-tick="progress" data-from="${dispatchedAt || ""}" data-to="${arriveAt || ""}" style="width:${progressPct(dispatchedAt, arriveAt)}%"></span></div>` : ""}
         ${stepper}
-        ${crew}
+        ${crewCard(inc)}
         ${next ? `<button class="btn ${admit ? "btn-primary" : "btn-secondary"} btn-block" data-action="advance" data-id="${inc.id}">${icon(admit ? "check" : "arrow-right")}<span>${next}</span></button>` : ""}
-        ${next && !admit && unit && unit.has_crew_app ? `<p class="action-note">The crew updates these stages from the Accidiox Crew app. Use this only if they can't.</p>` : ""}
+        ${next && !admit ? `<p class="action-note">The crew updates these stages from the Accidiox Crew app. Use this only if they can't.</p>` : ""}
         ${inc.dispatch_status === "PICKED_UP" && inc.blood_group ? `<p class="action-note">Prepare <strong>${esc(inc.blood_group)}</strong> blood${inc.medical_notes ? ` · ${esc(inc.medical_notes)}` : ""}.</p>` : ""}
       </div>`;
   }
@@ -570,13 +666,25 @@ function renderActionCard(inc, k, created) {
           <div style="font-size:15px;font-weight:600;margin-top:2px;">${esc(hospitalName(inc.claimed_by_hospital_id, inc.claimed_by_hospital_name))}</div>
         </div>
         <div class="action-right">
-          <span>${isDone(inc) ? "Status" : "Arrival in"}</span>
-          <strong class="mono" ${!isDone(inc) && idx < 2 && arriveAt ? `data-tick="eta" data-t="${arriveAt}"` : ""}>${isDone(inc) ? "Admitted" : idx >= 2 ? STAGE_LABELS[inc.dispatch_status] : arriveAt ? fmtEta(arriveAt) : "—"}</strong>
+          <span>Status</span>
+          <strong>${isDone(inc) ? "Admitted" : isAccepted(inc) ? STAGE_LABELS[inc.dispatch_status] : "Assigning ambulance"}</strong>
         </div>
       </div>
-      ${stepper}
-      ${crew}
-      <div class="locked-note">${icon("shield", "ic ic-xs")}<span>Dispatch is locked for your hospital. <strong>${esc(hospitalName(inc.claimed_by_hospital_id))}</strong> is responding, so your ambulances stay free for the next emergency.</span></div>
+      <div class="locked-note">${icon("shield", "ic ic-xs")}<span>Dispatch is locked for your hospital. <strong>${esc(hospitalName(inc.claimed_by_hospital_id))}</strong> accepted this case, so your ambulances stay free for the next emergency.</span></div>
+    </div>`;
+}
+
+function crewCard(inc) {
+  const livePos = liveAmbulancePos(inc);
+  return `
+    <div class="crew">
+      <div class="crew-avatar">${icon("ambulance")}</div>
+      <div class="crew-text">
+        <strong>${esc(inc.ambulance_unit || "Ambulance")}${inc.ambulance_type ? ` · ${esc(inc.ambulance_type)}` : ""}</strong>
+        <span>${esc([inc.driver_name, inc.ambulance_vehicle].filter(Boolean).join(" · "))}</span>
+        ${livePos ? `<span class="crew-live">Live GPS</span>` : ""}
+      </div>
+      ${inc.driver_phone ? `<a class="icon-btn" href="tel:${esc(String(inc.driver_phone).replace(/[^\d+]/g, ""))}" title="Call crew">${icon("phone")}</a>` : ""}
     </div>`;
 }
 
@@ -584,7 +692,7 @@ function renderActionCard(inc, k, created) {
 // eta_minutes current; otherwise count down from the dispatch time.
 function etaTarget(inc) {
   const eta = Number(inc.eta_minutes);
-  if (!isFinite(eta)) return null;
+  if (!isFinite(eta) || !isAccepted(inc)) return null;
   if (liveAmbulancePos(inc)) return now() + eta * 60000;
   const dispatchedAt = parseTs(inc.dispatch_timestamp);
   return dispatchedAt ? dispatchedAt + eta * 60000 : null;
@@ -626,34 +734,14 @@ function renderMetrics(inc) {
     <div class="severity-note">${icon("activity", "ic ic-xs")}<span>${esc(impactDesc || "Lateral capsize")} · 10 s tilt hold above 85° + 20 s rider cancel window</span></div>`;
 }
 
-function renderAlerted(inc) {
-  const list = inc.alerted_hospitals || [];
-  if (!list.length) return `<p class="muted-sm">No hospitals were in range.</p>`;
-  return `
-    <div class="fac-list">
-      ${list.map((h) => {
-        const you = state.me && h.id === state.me.id;
-        const responding = h.id === inc.claimed_by_hospital_id;
-        const tag = responding ? `<span class="tag tag-brand">Responding</span>`
-          : inc.dispatch_status !== "UNCLAIMED" ? `<span class="tag">Standby</span>` : "";
-        return `
-          <div class="fac-item ${you ? "you" : ""}">
-            <span class="fac-rank">${h.rank}</span>
-            <span class="fac-name">${esc(h.name)}${you ? ` <span class="tag tag-brand">You</span>` : ""} ${tag}</span>
-            <span class="fac-dist">${fmtKm(h.distance_km)}</span>
-          </div>`;
-      }).join("")}
-    </div>`;
-}
-
 function renderTimeline(inc) {
   const events = (inc.timeline || []).map((e) => {
     let sub = e.note || "";
     if (!sub && e.actor_type === "ambulance") sub = `Updated by ${e.by} crew`;
-    if (!sub && e.actor_type === "hospital") sub = `Updated by ${hospitalName(e.by, e.by)}`;
+    if (!sub && e.actor_type === "hospital") sub = `Updated by ${hospitalName(e.by, "hospital")}`;
     let title = EVENT_TEXT[e.status] || e.status;
-    if (e.status === "DISPATCHED") title = `Claimed by ${hospitalName(e.by, e.by)}`;
-    const cls = e.status === "REPORTED" ? "crit" : e.status === "ADMITTED" ? "ok" : e.status === "ALERTED" ? "" : "brand";
+    if (e.status === "DISPATCHED") title = `Accepted by ${hospitalName(e.by, "a nearby hospital")}`;
+    const cls = e.status === "REPORTED" || e.status === "NO_RESPONSE" || e.status === "DECLINED" ? "crit" : e.status === "ADMITTED" ? "ok" : e.status === "ALERTED" ? "" : "brand";
     return { t: parseTs(e.at), cls, title, sub };
   });
   return `
@@ -666,37 +754,60 @@ function renderTimeline(inc) {
     </ul>`;
 }
 
-// ----- Network -----
-function renderNetwork() {
-  const grid = $("hospitalNetwork");
-  const claims = state.incidents.map((i) => [i.id, i.claimed_by_hospital_id, i.dispatch_status]);
-  if (!changed("network", [state.hospitals, claims, state.me && state.me.id])) return;
-  $("networkSummary").textContent = `${state.hospitals.length} hospitals on the grid`;
+// ----- Own fleet -----
+function renderFleet() {
+  const list = $("fleetList");
+  if (!changed("fleet", [state.fleet.map((a) => [a.id, a.status, a.approved, a.crew_name, a.last_seen && Math.floor(parseTs(a.last_seen) / 60000)])])) return;
+  const approved = state.fleet.filter((a) => a.approved);
+  const pending = state.fleet.filter((a) => !a.approved);
+  $("fleetCount").textContent = approved.length;
+  $("fleetSummary").textContent = pending.length
+    ? `${pending.length} crew request${pending.length === 1 ? "" : "s"} waiting for approval`
+    : `${readyUnits().length} on duty · crews join from the Accidiox Crew app`;
 
-  // Own hospital first, then nearest others.
-  const meLL = state.me ? [state.me.latitude, state.me.longitude] : null;
-  const list = [...state.hospitals].sort((a, b) => {
-    if (state.me && a.id === state.me.id) return -1;
-    if (state.me && b.id === state.me.id) return 1;
-    return meLL ? haversineKm(meLL, [a.latitude, a.longitude]) - haversineKm(meLL, [b.latitude, b.longitude]) : 0;
-  }).slice(0, 8);
-
-  grid.innerHTML = list.map((h) => {
-    const active = state.incidents.filter((i) => i.claimed_by_hospital_id === h.id && !isDone(i));
-    const current = state.me && h.id === state.me.id;
+  if (!state.fleet.length) {
+    list.innerHTML = `<div class="fleet-empty">No ambulances yet. Ask your crews to install the Accidiox Crew app, choose your hospital and request access. Their requests appear here for approval.</div>`;
+    return;
+  }
+  const statusText = { available: "On duty", assigned: "On a case", offline: "Off duty" };
+  list.innerHTML = [...pending, ...approved].map((a) => {
+    const cls = a.approved ? a.status : "pending";
+    const seen = a.last_seen ? ` · seen ${fmtAgo(parseTs(a.last_seen))}` : "";
     return `
-      <div class="net-card ${current ? "current" : ""}">
-        <div class="net-top">
-          <span class="net-name">${esc(h.name)}</span>
-          ${current ? `<span class="tag tag-brand">You</span>` : ""}
+      <div class="fleet-item ${a.approved ? "" : "pending"}">
+        <span class="fleet-dot ${cls}"></span>
+        <div class="fleet-text">
+          <strong>${esc(a.unit_code)} <span class="tag">${esc(a.unit_type)}</span></strong>
+          <span>${esc(a.crew_name || "Crew")} · ${a.approved ? statusText[a.status] || a.status : "Requested access"}${a.approved ? seen : ""}</span>
         </div>
-        <div class="net-stats">
-          <span class="net-stat" title="Ambulances ready / fleet">${icon("ambulance", "ic ic-xs")}<strong>${h.ambulances_available}</strong>/${h.ambulances_total}</span>
-          <span class="net-stat" title="Trauma beds free">${icon("bed", "ic ic-xs")}<strong>${h.er_beds_free}</strong> beds</span>
+        <div class="fleet-actions">
+          ${a.approved
+            ? `<button class="mini-btn icon" data-fleet="remove" data-id="${a.id}" title="Remove unit">${icon("x", "ic ic-xs")}</button>`
+            : `<button class="mini-btn" data-fleet="remove" data-id="${a.id}">Reject</button><button class="mini-btn ok" data-fleet="approve" data-id="${a.id}">Approve</button>`}
         </div>
-        <div class="net-foot ${active.length ? "busy" : ""}">${active.length ? `Responding to ${active.map(incCode).join(", ")}` : h.ambulances_available ? "Available" : "No units free"}</div>
       </div>`;
   }).join("");
+}
+
+async function fleetAction(action, id) {
+  const unit = fleetUnit(id);
+  if (!unit) return;
+  if (action === "approve") {
+    const data = await postAction("approve_crew", { ambulance_id: id });
+    if (data.status === "success") toast("success", `${unit.unit_code} approved`, `${unit.crew_name || "The crew"} can now go on duty and receive cases.`, "check");
+    else toast("danger", "Couldn't approve", data.message || "Try again.", "alert");
+    return fetchDispatchData();
+  }
+  const title = unit.approved ? `Remove ${unit.unit_code}?` : `Reject ${unit.unit_code}?`;
+  const body = unit.approved
+    ? `${unit.crew_name || "This crew"} will be signed out and their Crew app account deleted.`
+    : `The request from ${unit.crew_name || "this crew"} will be deleted.`;
+  confirmAction(title, body, unit.approved ? "Remove" : "Reject", async () => {
+    const data = await postAction("remove_unit", { ambulance_id: id });
+    if (data.status === "success") toast("", `${unit.unit_code} removed`, "", "x");
+    else toast("danger", "Couldn't remove", data.message || "Try again.", "alert");
+    fetchDispatchData();
+  });
 }
 
 // ================= Map =================
@@ -767,14 +878,11 @@ function renderMap() {
     }
   });
 
-  state.hospitals.forEach((h) => {
-    const active = state.me && h.id === state.me.id;
-    if (!hospitalMarkers[h.id]) {
-      hospitalMarkers[h.id] = L.marker([h.latitude, h.longitude], { icon: hospitalIcon(active), zIndexOffset: active ? 200 : 100 })
-        .addTo(map)
-        .bindPopup(`<strong>${esc(h.full_name || h.name)}</strong><div class="pop-sub">${esc([h.area, h.city].filter(Boolean).join(", "))} · ${h.ambulances_available}/${h.ambulances_total} ambulances · ${h.er_beds_free} beds</div>`);
-    }
-  });
+  if (state.me && !myHospitalMarker) {
+    myHospitalMarker = L.marker([state.me.latitude, state.me.longitude], { icon: hospitalIcon(true), zIndexOffset: 200 })
+      .addTo(map)
+      .bindPopup(`<strong>${esc(state.me.full_name)}</strong><div class="pop-sub">${esc([state.me.area, state.me.city].filter(Boolean).join(", "))}</div>`);
+  }
 
   renderRoute();
   renderFocusCard();
@@ -803,11 +911,10 @@ function getRoute(hospId, inc) {
   if (h && haversineKm(start, end) <= ROUTE_MAX_KM) {
     entry.status = "loading";
     const url = `${ROUTE_API}?type=routing&from_lat=${start[0]}&from_lon=${start[1]}&to_lat=${end[0]}&to_lon=${end[1]}`;
-    fetch(url)
-      .then((r) => r.json())
-      .then((geo) => {
+    S.api(ROLE, url)
+      .then(({ data: geo }) => {
         const feat = geo && geo.features && geo.features[0];
-        if (!feat) throw new Error(geo && geo.error ? geo.error : "no route");
+        if (!feat) throw new Error("no route");
         const g = feat.geometry;
         const lines = g.type === "MultiLineString" ? g.coordinates : [g.coordinates];
         entry.latlngs = lines.flat().map(([lon, lat]) => [lat, lon]);
@@ -869,9 +976,9 @@ function removeAmbulance() {
 }
 
 // Real crew GPS when the Crew app is streaming; otherwise an estimate along
-// the route from dispatch time and ETA.
+// the route from dispatch time and ETA. Only once a crew has accepted.
 function updateAmbulance(inc, route) {
-  if (inc.dispatch_status === "UNCLAIMED" || isDone(inc)) { removeAmbulance(); return; }
+  if (!isAccepted(inc) || isDone(inc) || kindOf(inc) !== "mine") { removeAmbulance(); return; }
   let pos = liveAmbulancePos(inc);
   if (!pos) {
     const dispatchedAt = parseTs(inc.dispatch_timestamp);
@@ -928,7 +1035,8 @@ function fitToSelection() {
 }
 
 function fitAll() {
-  const pts = state.incidents.map(incLatLng).concat(state.hospitals.map((h) => [h.latitude, h.longitude]));
+  const pts = state.incidents.map(incLatLng);
+  if (state.me) pts.push([state.me.latitude, state.me.longitude]);
   if (pts.length) map.flyToBounds(L.latLngBounds(pts), { padding: [60, 60], maxZoom: 14, duration: 0.8 });
 }
 
@@ -940,10 +1048,9 @@ function renderFocusCard() {
   const route = routeCache.get(routeKey(origin, inc.id));
   const km = route && route.status === "ok" ? pathKm(route.latlngs) : distanceFrom(origin, inc);
   const k = kindOf(inc);
-  const originH = hospitalById(origin);
   const eta = k === "open"
-    ? `~${fmtMin(estimateEtaMin(originH ? [originH.latitude, originH.longitude] : null, inc, routeKey(origin, inc.id)))}`
-    : inc.eta_minutes != null ? fmtMin(inc.eta_minutes) : "—";
+    ? `~${fmtMin(estimateEtaMin([state.me.latitude, state.me.longitude], inc, routeKey(origin, inc.id)))}`
+    : isAccepted(inc) && inc.eta_minutes != null ? fmtMin(inc.eta_minutes) : "—";
 
   card.hidden = false;
   card.innerHTML = `
@@ -994,7 +1101,8 @@ function initControls() {
     const action = e.target.closest("[data-action]");
     if (action) {
       const id = Number(action.dataset.id);
-      if (action.dataset.action === "claim") openClaimModal(id);
+      if (action.dataset.action === "claim") openClaimModal(id, "claim");
+      if (action.dataset.action === "reassign") openClaimModal(id, "reassign");
       if (action.dataset.action === "advance") advanceStage(id, action);
       return;
     }
@@ -1005,6 +1113,11 @@ function initControls() {
         () => toast("", "Couldn't copy", "Select the coordinates manually.", "copy")
       );
     }
+  });
+
+  $("fleetList").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-fleet]");
+    if (btn) fleetAction(btn.dataset.fleet, Number(btn.dataset.id));
   });
 
   document.querySelectorAll("[data-beds]").forEach((btn) => {
@@ -1019,10 +1132,12 @@ function initControls() {
   });
   updateSoundButton();
 
-  $("btnSimulateCrash").addEventListener("click", simulateCrashIncident);
-  $("btnResetIncidents").addEventListener("click", () => openDialog("confirmModal"));
   $("btnConfirmCancel").addEventListener("click", () => closeDialog("confirmModal"));
-  $("btnConfirmOk").addEventListener("click", resetDemo);
+  $("btnConfirmOk").addEventListener("click", () => {
+    const fn = state.confirmFn;
+    closeDialog("confirmModal");
+    if (fn) fn();
+  });
 
   $("btnCancelClaimModal").addEventListener("click", closeClaimModal);
   $("btnCloseClaimModal").addEventListener("click", closeClaimModal);
@@ -1055,6 +1170,14 @@ function updateSoundButton() {
   btn.innerHTML = icon(state.soundOn ? "bell" : "bell-off", "ic");
 }
 
+function confirmAction(title, body, okLabel, fn) {
+  $("confirmTitle").textContent = title;
+  $("confirmBody").textContent = body;
+  $("btnConfirmOk").textContent = okLabel;
+  state.confirmFn = fn;
+  openDialog("confirmModal");
+}
+
 // ----- Account menu -----
 function initAccountMenu() {
   const menu = $("facilityMenu");
@@ -1081,8 +1204,7 @@ function closeAccountMenu() {
 
 function applyAccount() {
   const me = state.me;
-  const initials = S.initials(me.name);
-  $("facilityAvatar").textContent = initials;
+  $("facilityAvatar").textContent = S.initials(me.name);
   $("facilityName").textContent = me.name;
   $("facilityMeta").textContent = [me.area, me.city].filter(Boolean).join(" · ") || "Emergency department";
   $("accountAvatar").textContent = S.initials(me.user_name);
@@ -1100,18 +1222,24 @@ async function changeBeds(delta) {
   if (data.status !== "success") toast("danger", "Couldn't update beds", data.message || "Try again.", "alert");
 }
 
-// ----- Claim flow -----
+// ----- Dispatch / reassign flow -----
 function unitEta(unit, inc) {
   const from = unit.latitude != null ? [unit.latitude, unit.longitude] : [state.me.latitude, state.me.longitude];
   return { km: haversineKm(from, incLatLng(inc)), min: estimateEtaMin(from, inc) };
 }
 
-function openClaimModal(id) {
+function openClaimModal(id, mode = "claim") {
   const inc = state.incidents.find((i) => i.id === id);
   if (!inc) return;
   state.pendingClaimId = id;
+  state.claimMode = mode;
 
-  $("modalClaimHospitalName").textContent = state.me.full_name || state.me.name;
+  $("claimTitle").textContent = mode === "reassign" ? "Choose another ambulance" : "Dispatch ambulance";
+  $("modalClaimHospitalName").parentElement.innerHTML = `From <strong id="modalClaimHospitalName">${esc(state.me.full_name || state.me.name)}</strong>. `
+    + (mode === "reassign"
+      ? `The crew gets ${state.acceptSeconds} s to accept in the Crew app.`
+      : "The other alerted hospitals are locked out once you confirm.");
+  const failed = state.failedUnits[id];
   $("modalIncidentSummary").innerHTML = `
     <span class="inc-indicator" style="background:var(--danger)"></span>
     <span class="dialog-incident-text">
@@ -1121,8 +1249,9 @@ function openClaimModal(id) {
 
   const typeDesc = { ALS: "Advanced life support", BLS: "Basic life support", TRAUMA: "Rapid trauma response" };
   const statusText = { assigned: "On another case", offline: "Crew off duty" };
-  const units = [...state.fleet].sort((a, b) =>
-    (a.status !== "available") - (b.status !== "available") || unitEta(a, inc).min - unitEta(b, inc).min);
+  // The unit that just failed to respond goes last.
+  const units = state.fleet.filter((u) => u.approved).sort((a, b) =>
+    (a.status !== "available") - (b.status !== "available") || (a.id === failed) - (b.id === failed) || unitEta(a, inc).min - unitEta(b, inc).min);
   const firstReady = units.find((u) => u.status === "available");
 
   $("unitOptions").innerHTML = units.length ? units.map((u) => {
@@ -1132,14 +1261,15 @@ function openClaimModal(id) {
       <label class="unit-option ${ready ? "" : "disabled"}">
         <input type="radio" name="unit" value="${u.id}" data-label="${esc(u.unit_code)}" ${ready ? "" : "disabled"} ${u === firstReady ? "checked" : ""} />
         <span class="unit-body">
-          <span class="unit-top"><strong>${esc(u.unit_code)}</strong><span class="tag">${esc(u.unit_type)}</span>${u === firstReady ? `<span class="tag tag-brand">Fastest</span>` : ""}${u.has_crew_app ? `<span class="tag">Crew app</span>` : ""}</span>
-          <span class="unit-desc">${ready ? esc(typeDesc[u.unit_type] || "Ambulance") : statusText[u.status] || u.status} · ${esc(u.crew_name || "Crew")}${u.vehicle_number ? ` · ${esc(u.vehicle_number)}` : ""}</span>
+          <span class="unit-top"><strong>${esc(u.unit_code)}</strong><span class="tag">${esc(u.unit_type)}</span>${u === firstReady ? `<span class="tag tag-brand">${mode === "reassign" ? "Suggested" : "Fastest"}</span>` : ""}${u.id === failed ? `<span class="tag tag-warning">Didn't respond</span>` : ""}</span>
+          <span class="unit-desc">${ready ? esc(typeDesc[u.unit_type] || "Ambulance") : statusText[u.status] || esc(u.status)} · ${esc(u.crew_name || "Crew")}${u.vehicle_number ? ` · ${esc(u.vehicle_number)}` : ""}</span>
           ${ready ? `<span class="unit-meta"><span>${fmtKm(e.km)}</span><span>~${fmtMin(e.min)} to scene</span></span>` : ""}
         </span>
       </label>`;
-  }).join("") : `<div class="unit-empty">No ambulances are registered for your hospital yet. Ask your crews to sign up in the Accidiox Crew app.</div>`;
+  }).join("") : `<div class="unit-empty">No approved ambulances yet. Approve your crews in the "Your ambulances" panel.</div>`;
 
   $("btnConfirmClaim").disabled = !firstReady;
+  $("btnConfirmClaim").querySelector("span").textContent = mode === "reassign" ? "Send this ambulance" : "Confirm dispatch";
   updateModalEta();
   openDialog("claimModal");
   setTimeout(() => document.querySelector("#unitOptions input:checked")?.focus(), 50);
@@ -1149,9 +1279,9 @@ function updateModalEta() {
   const inc = state.incidents.find((i) => i.id === state.pendingClaimId);
   const checked = document.querySelector('#unitOptions input[name="unit"]:checked');
   const unit = checked ? fleetUnit(Number(checked.value)) : null;
-  if (!inc || !unit) { $("modalEta").innerHTML = `${icon("clock")}<span>No ambulance available right now.</span>`; return; }
+  if (!inc || !unit) { $("modalEta").innerHTML = `${icon("clock")}<span>No ambulance on duty right now.</span>`; return; }
   const e = unitEta(unit, inc);
-  $("modalEta").innerHTML = `${icon("clock")}<span>${esc(unit.unit_code)} arrives in <strong>~${fmtMin(e.min)}</strong> · ${fmtKm(e.km)}. The rider sees this ETA in their app.</span>`;
+  $("modalEta").innerHTML = `${icon("clock")}<span>${esc(unit.unit_code)} arrives in <strong>~${fmtMin(e.min)}</strong> · ${fmtKm(e.km)}. The crew has ${state.acceptSeconds} s to accept.</span>`;
 }
 
 function closeClaimModal() {
@@ -1165,19 +1295,19 @@ async function submitIncidentClaim() {
   const checked = document.querySelector('#unitOptions input[name="unit"]:checked');
   if (!inc || !checked) return closeClaimModal();
   $("btnConfirmClaim").disabled = true;
+  const reassign = state.claimMode === "reassign";
 
   try {
-    const data = await postAction("claim_incident", { incident_id: id, ambulance_id: Number(checked.value) });
+    const data = await postAction(reassign ? "assign_ambulance" : "claim_incident", { incident_id: id, ambulance_id: Number(checked.value) });
     closeClaimModal();
-    if (data.status === "claimed_success") {
-      toast("success", `${checked.dataset.label} dispatched`, `${incCode(inc)} is yours. The other alerted hospitals are on standby.`, "ambulance");
-      speak(`Ambulance ${checked.dataset.label} dispatched to ${inc.location_name || "the crash site"}.`);
+    if (data.status === "claimed_success" || data.status === "assigned_success") {
+      toast("brand", `${checked.dataset.label} alerted`, `Waiting for the crew to accept (${state.acceptSeconds} s).`, "ambulance");
     } else {
-      toast("danger", data.code === "already_claimed" ? "Already claimed" : "Dispatch failed", data.message || "Please try again.", "alert");
+      toast("danger", data.code === "already_claimed" ? "Already accepted elsewhere" : "Dispatch failed", data.message || "Please try again.", "alert");
     }
   } catch (err) {
     closeClaimModal();
-    toast("danger", "Couldn't reach the grid", "Check the connection and try again.", "alert");
+    toast("danger", "Couldn't reach Accidiox", "Check the connection and try again.", "alert");
   }
   fetchDispatchData();
 }
@@ -1192,55 +1322,17 @@ async function advanceStage(id, btn) {
     const data = await postAction("update_status", { incident_id: id, new_status: next });
     if (data.status === "updated_success") {
       toast(next === "ADMITTED" ? "success" : "brand", `${incCode(inc)} · ${STAGE_LABELS[next]}`,
-        next === "ADMITTED" ? "Ambulance released and one trauma bed marked occupied." : "Shared with the rider and the grid.",
+        next === "ADMITTED" ? "Ambulance released and one trauma bed marked occupied." : "Shared with the rider.",
         next === "ADMITTED" ? "check" : "arrow-right");
     } else {
       toast("danger", "Update failed", data.message || "Please try again.", "alert");
       btn.disabled = false;
     }
   } catch (err) {
-    toast("danger", "Couldn't reach the grid", "Check the connection and try again.", "alert");
+    toast("danger", "Couldn't reach Accidiox", "Check the connection and try again.", "alert");
     btn.disabled = false;
   }
   fetchDispatchData();
-}
-
-// ----- Demo tools -----
-async function simulateCrashIncident() {
-  const btn = $("btnSimulateCrash");
-  btn.disabled = true;
-  try {
-    const data = await postAction("simulate_incident", {});
-    if (data.status === "simulated_success" && data.incident) {
-      state.seenIds.add(data.incident.id);
-      playAlertTone();
-      toast("danger", "New crash SOS", `${data.incident.location_name} · ${data.incident.blood_group} blood`, "alert");
-      state.selectedId = data.incident.id;
-      state.fitPendingFor = data.incident.id;
-      await fetchDispatchData();
-      fitToSelection();
-    } else {
-      toast("danger", "Simulation failed", data.message || "Try again.", "alert");
-    }
-  } catch (err) {
-    toast("danger", "Simulation failed", "Is the PHP server running?", "alert");
-  }
-  btn.disabled = false;
-}
-
-async function resetDemo() {
-  closeDialog("confirmModal");
-  try {
-    await postAction("reset_demo", {});
-    state.selectedId = null;
-    state.seenIds.clear();
-    state.loaded = false;
-    routeCache.clear();
-    await fetchDispatchData();
-    toast("", "Demo data reset", "All incidents cleared and ambulances back at base.", "rotate");
-  } catch (err) {
-    toast("danger", "Reset failed", "Please try again.", "alert");
-  }
 }
 
 // ----- Dialogs & toasts -----
@@ -1254,6 +1346,7 @@ function closeDialog(id) {
   el.classList.remove("show");
   el.setAttribute("aria-hidden", "true");
   if (id === "claimModal") state.pendingClaimId = null;
+  if (id === "confirmModal") state.confirmFn = null;
 }
 
 function toast(kind, title, body, iconName = "bell") {
@@ -1266,7 +1359,7 @@ function toast(kind, title, body, iconName = "bell") {
   setTimeout(() => {
     el.classList.add("leaving");
     el.addEventListener("animationend", () => el.remove(), { once: true });
-  }, 4200);
+  }, 4500);
 }
 
 // ================= Clock tick =================
@@ -1282,13 +1375,17 @@ function tick() {
       case "elapsed": if (v) el.textContent = fmtDuration(t - v); break;
       case "eta": if (v) el.textContent = fmtEta(v); break;
       case "progress": el.style.width = `${progressPct(Number(el.dataset.from), Number(el.dataset.to))}%`; break;
+      case "accept": {
+        const left = Math.max(0, (v - t) / 1000);
+        el.querySelector("strong").textContent = Math.ceil(left);
+        el.querySelector(".bar").style.strokeDashoffset = String(138.2 * (1 - left / state.acceptSeconds));
+        break;
+      }
     }
   });
 
   const inc = state.incidents.find((i) => i.id === state.selectedId);
-  if (inc && ambulanceMarker && !isDone(inc) && inc.dispatch_status !== "UNCLAIMED") {
-    updateAmbulance(inc, getRoute(routeOrigin(inc), inc));
-  }
+  if (inc && ambulanceMarker) updateAmbulance(inc, getRoute(routeOrigin(inc), inc));
 }
 
 // ================= Audio =================
@@ -1312,10 +1409,4 @@ function playAlertTone(force = false) {
       osc.stop(t0 + offset + 0.18);
     });
   } catch (e) {}
-}
-
-function speak(text) {
-  if (!state.soundOn || !("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }

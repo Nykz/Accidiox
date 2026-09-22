@@ -5,7 +5,9 @@
 
 ## 🏗 Project Architecture & Files
 * **`index.html`**: Rider Mobile Telemetry HUD (Web Bluetooth connect, 3D top-down instrument cluster, smartphone GPS, 20-second safety countdown, cancel button, SOS triggers).
-* **`admin.html`**: Incident Investigation & Analytics Portal (Interactive Leaflet map pinning accident locations, historical telemetry logs).
+* **`hospital_dashboard.html`**: Hospital console. Crash alerts for the nearest verified hospitals, ambulance dispatch with a 60 s crew-accept window, fleet approvals, beds and admissions.
+* **`ambulance.html`**: Accidiox Crew app. Accept/decline dispatches, patient blood group and allergies, live GPS, stage updates.
+* **`auth.html`**: Sign in / sign up / password reset for each app (each app has its own accounts).
 * **`js/bluetooth.js`**: Web Bluetooth Low Energy (BLE) interface communicating directly with ESP32 (`Bike-Blackbox-ESP32`).
 * **`js/app.js`**: Main app controller, audio siren synthesizer, text-to-speech, GPS tracker, and WAMP database synchronization.
 * **`api/db_config.php`**: MySQL database connection — gitignored (not in this repo). Copy `api/db_config.example.php` to `api/db_config.php` and fill in real values; on Hostinger, edit it directly on the server.
@@ -32,7 +34,8 @@
    * Default path: `C:\wamp64\www\blackbox` (or `C:\wamp\www\blackbox`)
 2. Open your browser and visit:
    * **Rider App:** `http://localhost/blackbox/index.html`
-   * **Investigation Portal:** `http://localhost/blackbox/admin.html`
+   * **Hospital console:** `http://localhost/blackbox/hospital_dashboard.html`
+   * **Crew app:** `http://localhost/blackbox/ambulance.html`
 
 ---
 

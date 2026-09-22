@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0b0d12" />
   <title>Accidiox Dispatch · Hospital Command</title>
+  <link rel="manifest" href="manifest-hospital.json" />
   <link rel="icon" type="image/png" href="assets/icons/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="css/hospital_dashboard.css?v=10" />
+  <link rel="stylesheet" href="css/hospital_dashboard.css?v=11" />
 </head>
 <body>
 
@@ -101,14 +102,6 @@
         <button class="icon-btn" id="btnAudioToggle" title="Mute alert sound" aria-pressed="true">
           <svg class="ic"><use href="#i-bell"/></svg>
         </button>
-        <button class="icon-btn" id="btnResetIncidents" title="Reset demo data">
-          <svg class="ic"><use href="#i-rotate"/></svg>
-        </button>
-        <button class="btn btn-secondary" id="btnSimulateCrash" title="Broadcast a simulated crash SOS to every facility">
-          <svg class="ic ic-sm"><use href="#i-zap"/></svg>
-          <span>Simulate SOS</span>
-          <span class="kbd-tag">Demo</span>
-        </button>
       </div>
     </header>
 
@@ -190,10 +183,10 @@
 
         <div class="panel network-panel">
           <div class="panel-head compact">
-            <div class="panel-title"><h2>Regional network</h2></div>
-            <span class="muted-sm" id="networkSummary">— facilities online</span>
+            <div class="panel-title"><h2>Your ambulances</h2><span class="count-badge" id="fleetCount">0</span></div>
+            <span class="muted-sm" id="fleetSummary">Crews join from the Accidiox Crew app</span>
           </div>
-          <div class="network-grid" id="hospitalNetwork"></div>
+          <div class="fleet-list" id="fleetList"></div>
         </div>
       </section>
 
@@ -238,11 +231,11 @@
   <!-- ================= Confirm dialog ================= -->
   <div class="dialog-backdrop" id="confirmModal" aria-hidden="true">
     <div class="dialog dialog-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle">
-      <h3 id="confirmTitle">Reset demo data?</h3>
-      <p class="dialog-sub" id="confirmBody">This deletes every incident on the grid (real and simulated) and returns all ambulances to base. Use it only between demos.</p>
+      <h3 id="confirmTitle">Are you sure?</h3>
+      <p class="dialog-sub" id="confirmBody"></p>
       <div class="dialog-actions">
         <button type="button" class="btn btn-ghost" id="btnConfirmCancel">Cancel</button>
-        <button type="button" class="btn btn-danger" id="btnConfirmOk">Reset</button>
+        <button type="button" class="btn btn-danger" id="btnConfirmOk">Confirm</button>
       </div>
     </div>
   </div>
@@ -250,7 +243,7 @@
   <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="js/session.js?v=1"></script>
-  <script src="js/hospital_dashboard.js?v=8"></script>
+  <script src="js/session.js?v=2"></script>
+  <script src="js/hospital_dashboard.js?v=10"></script>
 </body>
 </html>
