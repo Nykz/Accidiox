@@ -57,3 +57,7 @@ web_app/api/data/
 /screens/
 /accident images/
 /accident videos/
+
+# Superseded by docs/Accidiox_Demo_Video_and_Pitch_Guide.*
+/Accidiox_Video_Script_and_Presentation_Guide.html
+/Accidiox_Video_Script_and_Presentation_Guide.pdf
