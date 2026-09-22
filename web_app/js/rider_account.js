@@ -585,6 +585,9 @@
     const name = $("sosSentHospitalName");
     const sub = $("sosSentHospitalSub");
     if (name) name.textContent = inc.hospital ? inc.hospital.name : inc.claimed_by_hospital_name;
+    if (inc.hospital && inc.hospital.phone && typeof setHospitalCallButton === "function") {
+      setHospitalCallButton(inc.hospital.short_name || inc.hospital.name, inc.hospital.phone);
+    }
     if (sub) sub.textContent = phaseOf(inc) === "HOSPITAL"
       ? "Accepted your emergency · assigning an ambulance"
       : `${inc.ambulance_unit || "Ambulance"} on the way · ETA ${inc.eta_minutes != null ? inc.eta_minutes : "~10"} min`;

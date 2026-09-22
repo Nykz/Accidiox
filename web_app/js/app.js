@@ -1221,14 +1221,15 @@ function showSosSentConfirmation(results, message, globalError) {
   const elHospitalName = document.getElementById("sosSentHospitalName");
   const elHospitalSub = document.getElementById("sosSentHospitalSub");
   const anySuccess = (results || []).some(r => r.sent === true);
-  const hospName = (appState.nearestHospital && !appState.nearestHospital.startsWith("Locating")) 
-    ? appState.nearestHospital 
-    : "Nearest Regional Trauma Center";
+  // nearestHospital holds a status message ("Locating…", "Unable to locate…")
+  // until the map lookup actually finds one; coords are set only on success.
+  const hospFound = !!appState.nearestHospitalCoords;
+  const hospName = hospFound ? appState.nearestHospital : "the nearest hospitals";
   const hospDist = appState.nearestHospitalDistance != null 
     ? `${appState.nearestHospitalDistance.toFixed(1)} km away` 
     : "Immediate Emergency Radius";
 
-  if (elHospitalName) elHospitalName.textContent = hospName;
+  if (elHospitalName) elHospitalName.textContent = hospFound ? hospName : "Nearest Accidiox hospitals";
   if (elHospitalSub) elHospitalSub.textContent = `Emergency alert, live GPS & routing dispatched (${hospDist})`;
 
   if (elSummary) {
@@ -1276,21 +1277,24 @@ function showSosSentConfirmation(results, message, globalError) {
     elSosSentContactsList.appendChild(item);
   });
 
-  // Nearest hospital's own number when the map data has one; otherwise the
-  // national ambulance line.
-  const hospitalPhone = String(appState.nearestHospitalPhone || "").replace(/[^\d+]/g, "") || "108";
-  const btnCallNearestHospital = document.getElementById("btnCallNearestHospital");
-  const labelCallNearestHospital = document.getElementById("labelCallNearestHospital");
-  if (btnCallNearestHospital) {
-    btnCallNearestHospital.href = `tel:${hospitalPhone}`;
-    if (labelCallNearestHospital) {
-      labelCallNearestHospital.textContent = (appState.nearestHospital && !appState.nearestHospital.startsWith("Locating"))
-        ? `Call ${appState.nearestHospital}`
-        : `Call Ambulance Helpline (108)`;
-    }
-  }
+  // Only offer a hospital call when we know a real hospital and its number
+  // (108 already covers the rest). Once a hospital accepts the emergency,
+  // rider_account.js switches this button to that hospital.
+  const hospitalPhone = String(appState.nearestHospitalPhone || "").replace(/[^\d+]/g, "");
+  setHospitalCallButton(hospFound && hospitalPhone ? hospName : null, hospitalPhone);
 
   elSosSentModal.classList.add("show");
+}
+
+function setHospitalCallButton(name, phone) {
+  const btn = document.getElementById("btnCallNearestHospital");
+  const label = document.getElementById("labelCallNearestHospital");
+  if (!btn) return;
+  const digits = String(phone || "").replace(/[^\d+]/g, "");
+  if (!name || digits.length < 6) { btn.hidden = true; return; }
+  btn.href = `tel:${digits}`;
+  if (label) label.textContent = `Call ${name}`;
+  btn.hidden = false;
 }
 
 // 8. Database Sync

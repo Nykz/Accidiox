@@ -1772,7 +1772,7 @@ body {
 /* Direct Emergency Hotline Calling Actions */
 .sos-emergency-call-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
   margin: 12px 0;
   width: 100%;
@@ -1782,11 +1782,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 10px;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 10px;
   border-radius: var(--radius-md);
-  font-size: 11.5px;
+  font-size: 14px;
   font-weight: 700;
+  white-space: nowrap;
+  min-width: 0;
   text-decoration: none;
   color: #ffffff;
   box-shadow: var(--shadow-1);
@@ -1801,13 +1804,15 @@ body {
 }
 
 .btn-emergency-call.hospital {
-  grid-column: span 2;
   background: linear-gradient(135deg, #059669, #047857);
 }
 
+.btn-emergency-call[hidden] { display: none; }
+.btn-emergency-call span { overflow: hidden; text-overflow: ellipsis; }
+
 .btn-emergency-call .icon {
-  width: 15px;
-  height: 15px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
