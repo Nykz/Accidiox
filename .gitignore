@@ -61,3 +61,15 @@ web_app/api/data/
 # Superseded by docs/Accidiox_Demo_Video_and_Pitch_Guide.*
 /Accidiox_Video_Script_and_Presentation_Guide.html
 /Accidiox_Video_Script_and_Presentation_Guide.pdf
+
+# Local working files, not part of the project:
+# AI/pitch prompts, presentation guides, deck outlines and the little
+# scripts that render them. The repository holds the product only.
+/.claude/
+/tools/
+/package.json
+/package-lock.json
+docs/Accidiox_Demo_Video_and_Pitch_Guide.*
+docs/Accidiox_PPT_Prompt*
+docs/kaya_slide_deck_outline.md
+docs/KAYA_IIT_Varanasi_Pitch_Deck_20_Slides.md
