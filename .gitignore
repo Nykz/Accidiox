@@ -75,3 +75,11 @@ docs/kaya_slide_deck_outline.md
 docs/KAYA_IIT_Varanasi_Pitch_Deck_20_Slides.md
 /generate_pitch_deck_kaya.js
 docs/Accidiox_Judges_Quick_Guide.*
+/media/
+docs/screenshots/preview_*.png
+/Titans_KAYA_BOM_and_Circuit_Schematics.html
+/temp_pptx_extract/
+/user_pptx_extract/
+/generate_*.js
+/inspect_*.js
+/accidiox_pitch_deck_master_prompt.txt
